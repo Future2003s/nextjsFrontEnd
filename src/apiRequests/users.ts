@@ -1,4 +1,5 @@
 import { http } from "@/lib/http";
+import { API_CONFIG } from "@/lib/api-config";
 
 export interface UserProfile {
   _id: string;
@@ -54,12 +55,13 @@ export interface AddAddressRequest {
 
 export interface UpdateAddressRequest extends Partial<AddAddressRequest> {}
 
+// User API requests to Node.js backend
 export const usersApiRequest = {
   // Get user profile
   getProfile: (
     token: string
   ): Promise<{ success: boolean; data: UserProfile }> => {
-    return http.get("/users/profile", {
+    return http.get(API_CONFIG.USERS.PROFILE, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -68,8 +70,8 @@ export const usersApiRequest = {
   updateProfile: (
     token: string,
     body: UpdateProfileRequest
-  ): Promise<{ success: boolean; message: string; data: UserProfile }> => {
-    return http.put("/users/profile", body, {
+  ): Promise<{ success: boolean; data: UserProfile }> => {
+    return http.put(API_CONFIG.USERS.PROFILE, body, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -78,7 +80,7 @@ export const usersApiRequest = {
   getAddresses: (
     token: string
   ): Promise<{ success: boolean; data: UserAddress[] }> => {
-    return http.get("/users/addresses", {
+    return http.get(API_CONFIG.USERS.ADDRESSES, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -87,8 +89,8 @@ export const usersApiRequest = {
   addAddress: (
     token: string,
     body: AddAddressRequest
-  ): Promise<{ success: boolean; message: string; data: UserAddress }> => {
-    return http.post("/users/addresses", body, {
+  ): Promise<{ success: boolean; data: UserAddress }> => {
+    return http.post(API_CONFIG.USERS.ADDRESSES, body, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -98,8 +100,8 @@ export const usersApiRequest = {
     token: string,
     addressId: string,
     body: UpdateAddressRequest
-  ): Promise<{ success: boolean; message: string; data: UserAddress }> => {
-    return http.put(`/users/addresses/${addressId}`, body, {
+  ): Promise<{ success: boolean; data: UserAddress }> => {
+    return http.put(`${API_CONFIG.USERS.ADDRESSES}/${addressId}`, body, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -109,7 +111,7 @@ export const usersApiRequest = {
     token: string,
     addressId: string
   ): Promise<{ success: boolean; message: string }> => {
-    return http.delete(`/users/addresses/${addressId}`, {
+    return http.delete(`${API_CONFIG.USERS.ADDRESSES}/${addressId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -120,7 +122,7 @@ export const usersApiRequest = {
     addressId: string
   ): Promise<{ success: boolean; message: string }> => {
     return http.put(
-      `/users/addresses/${addressId}/default`,
+      `${API_CONFIG.USERS.ADDRESSES}/${addressId}/default`,
       {},
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -132,14 +134,18 @@ export const usersApiRequest = {
   updateNotificationPreferences: (
     token: string,
     preferences: {
-      email?: boolean;
-      sms?: boolean;
-      push?: boolean;
+      email: boolean;
+      sms: boolean;
+      push: boolean;
     }
   ): Promise<{ success: boolean; message: string }> => {
-    return http.put("/users/preferences/notifications", preferences, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    return http.put(
+      API_CONFIG.USERS.PREFERENCES,
+      { notifications: preferences },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
   },
 
   // Update language preference
@@ -148,7 +154,7 @@ export const usersApiRequest = {
     language: string
   ): Promise<{ success: boolean; message: string }> => {
     return http.put(
-      "/users/preferences/language",
+      API_CONFIG.USERS.PREFERENCES,
       { language },
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -162,7 +168,7 @@ export const usersApiRequest = {
     currency: string
   ): Promise<{ success: boolean; message: string }> => {
     return http.put(
-      "/users/preferences/currency",
+      API_CONFIG.USERS.PREFERENCES,
       { currency },
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -173,17 +179,13 @@ export const usersApiRequest = {
   // Upload avatar
   uploadAvatar: (
     token: string,
-    formData: FormData
-  ): Promise<{
-    success: boolean;
-    message: string;
-    data: { avatar: string };
-  }> => {
-    return http.post("/users/avatar", formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        // Don't set Content-Type for FormData
-      },
+    file: File
+  ): Promise<{ success: boolean; data: { avatarUrl: string } }> => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    return http.put(API_CONFIG.USERS.AVATAR, formData, {
+      headers: { Authorization: `Bearer ${token}` },
     });
   },
 };

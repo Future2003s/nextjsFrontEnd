@@ -1,27 +1,31 @@
 import { QueryClient } from "@tanstack/react-query";
-import { authApiRequest } from "@/apiRequests/auth";
 
 export const meQueryKey = ["me"] as const;
 
 export async function fetchMe() {
   try {
-    // Lấy token từ localStorage hoặc context
-    const token =
-      localStorage.getItem("sessionToken") ||
-      sessionStorage.getItem("sessionToken");
+    // Gọi Next API để tận dụng cookie sessionToken thay vì localStorage
+    const res = await fetch(`/api/auth/me`, {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
 
-    if (!token) {
+    if (res.status === 401) {
       throw new Error("No authentication token found");
     }
 
-    // Gọi backend API
-    const result = await authApiRequest.me(token);
+    const contentType = res.headers.get("content-type") || "application/json";
+    const data = contentType.includes("application/json")
+      ? await res.json()
+      : await res.text();
 
-    if (result.success) {
-      return result;
-    } else {
-      throw new Error("Failed to fetch user data");
+    // Chuẩn hoá format: ưu tiên data.success === true
+    if (res.ok && (data?.success === true || data?.data)) {
+      return data;
     }
+
+    throw new Error(data?.message || "Failed to fetch user data");
   } catch (error) {
     console.error("Error fetching user data:", error);
     throw error;

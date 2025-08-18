@@ -5,7 +5,7 @@ import HydrateClient from "@/providers/hydrate-client";
 import { meQueryKey } from "./query";
 
 async function fetchMeServer() {
-  const h = headers();
+  const h = await headers();
   const host = h.get("host");
   const proto = h.get("x-forwarded-proto") || "http";
   const url = `${proto}://${host}/api/account/me`;

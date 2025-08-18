@@ -1,8 +1,10 @@
 import {
   LoginBodyType,
+  ExtendedLoginBodyType,
   RegisterRequestType,
 } from "@/shemaValidation/auth.schema";
 import { http } from "@/lib/http";
+import { API_CONFIG } from "@/lib/api-config";
 
 // Backend response types
 export interface BackendAuthResponse {
@@ -19,9 +21,20 @@ export interface BackendAuthResponse {
       isActive: boolean;
       isEmailVerified: boolean;
       lastLogin?: string;
+      preferences?: {
+        language: string;
+        currency: string;
+        notifications: {
+          email: boolean;
+          sms: boolean;
+          push: boolean;
+        };
+      };
     };
     token: string;
     refreshToken: string;
+    expiresIn?: number;
+    permissions?: string[];
   };
 }
 
@@ -47,17 +60,26 @@ export interface BackendUserProfile {
 // Direct API calls to Node.js backend
 export const authApiRequest = {
   register: (body: RegisterRequestType): Promise<BackendAuthResponse> => {
-    return http.post("/auth/register", body);
+    return http.post(API_CONFIG.AUTH.REGISTER, body);
   },
 
-  login: (body: LoginBodyType): Promise<BackendAuthResponse> => {
-    return http.post("/auth/login", body);
+  login: (
+    body: LoginBodyType | ExtendedLoginBodyType
+  ): Promise<BackendAuthResponse> => {
+    return http.post(API_CONFIG.AUTH.LOGIN, body);
+  },
+
+  // Enhanced login với extended data
+  loginExtended: (
+    body: ExtendedLoginBodyType
+  ): Promise<BackendAuthResponse> => {
+    return http.post(API_CONFIG.AUTH.LOGIN, body);
   },
 
   me: (
     token: string
   ): Promise<{ success: boolean; data: BackendUserProfile }> => {
-    return http.get("/auth/me", {
+    return http.get(API_CONFIG.AUTH.ME, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -66,7 +88,7 @@ export const authApiRequest = {
     token: string,
     body: { currentPassword: string; newPassword: string }
   ): Promise<{ success: boolean; message: string }> => {
-    return http.put("/auth/change-password", body, {
+    return http.put(API_CONFIG.AUTH.CHANGE_PASSWORD, body, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -74,7 +96,7 @@ export const authApiRequest = {
   forgotPassword: (
     email: string
   ): Promise<{ success: boolean; message: string }> => {
-    return http.post("/auth/forgot-password", { email });
+    return http.post(API_CONFIG.AUTH.FORGOT_PASSWORD, { email });
   },
 
   resetPassword: (

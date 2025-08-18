@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { locales, defaultLocale, isValidLocale } from "@/i18n/config";
+import { API_CONFIG } from "@/lib/api-config";
 
 // Helper to get auth info from cookies
 async function getAuthInfo(request: NextRequest) {
@@ -11,11 +12,12 @@ async function getAuthInfo(request: NextRequest) {
   }
 
   try {
-    // Validate session by calling our own API
-    const apiUrl = new URL("/api/account/me", request.url);
-    const response = await fetch(apiUrl, {
+    // Call backend API directly using the new API configuration
+    const backendUrl = `${API_CONFIG.API_BASE_URL}${API_CONFIG.AUTH.ME}`;
+    const response = await fetch(backendUrl, {
       headers: {
-        cookie: request.headers.get("cookie") || "",
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
       },
     });
 

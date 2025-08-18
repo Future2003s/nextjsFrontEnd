@@ -1,4 +1,5 @@
 import { http } from "@/lib/http";
+import { API_CONFIG } from "@/lib/api-config";
 
 export interface CartItem {
   _id: string;
@@ -28,29 +29,30 @@ export interface AddToCartRequest {
   variantId?: string;
 }
 
+// Cart API requests to Node.js backend
 export const cartApiRequest = {
   // Get user's cart
   getCart: (token: string): Promise<CartResponse> => {
-    return http.get("/cart", {
+    return http.get(API_CONFIG.CART.GET, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
 
   // Add item to cart
   addToCart: (token: string, body: AddToCartRequest): Promise<CartResponse> => {
-    return http.post("/cart/add", body, {
+    return http.post(API_CONFIG.CART.ADD_ITEM, body, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
 
-  // Update item quantity
+  // Update cart item quantity
   updateQuantity: (
     token: string,
     itemId: string,
     quantity: number
   ): Promise<CartResponse> => {
     return http.put(
-      `/cart/items/${itemId}`,
+      API_CONFIG.CART.UPDATE_ITEM.replace(":productId", itemId),
       { quantity },
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -60,14 +62,17 @@ export const cartApiRequest = {
 
   // Remove item from cart
   removeItem: (token: string, itemId: string): Promise<CartResponse> => {
-    return http.delete(`/cart/items/${itemId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    return http.delete(
+      API_CONFIG.CART.REMOVE_ITEM.replace(":productId", itemId),
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
   },
 
   // Clear entire cart
   clearCart: (token: string): Promise<CartResponse> => {
-    return http.delete("/cart", {
+    return http.delete(API_CONFIG.CART.CLEAR, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -75,7 +80,7 @@ export const cartApiRequest = {
   // Apply discount code
   applyDiscount: (token: string, code: string): Promise<CartResponse> => {
     return http.post(
-      "/cart/discount",
+      API_CONFIG.CART.GET + "/discount",
       { code },
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -85,7 +90,7 @@ export const cartApiRequest = {
 
   // Remove discount code
   removeDiscount: (token: string): Promise<CartResponse> => {
-    return http.delete("/cart/discount", {
+    return http.delete(API_CONFIG.CART.GET + "/discount", {
       headers: { Authorization: `Bearer ${token}` },
     });
   },

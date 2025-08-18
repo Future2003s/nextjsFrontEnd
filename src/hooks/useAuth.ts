@@ -1,7 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { authApiRequest, BackendUserProfile } from "@/apiRequests/auth";
+import {
+  BackendAuthResponse,
+  BackendUserProfile,
+  authApiRequest,
+} from "@/apiRequests/auth";
+import { ExtendedLoginBodyType } from "@/shemaValidation/auth.schema";
 import { toast } from "sonner";
+
+import {
+  setCookie,
+  getCookie,
+  deleteCookie,
+  setAuthCookies,
+  clearAuthCookies,
+} from "@/lib/cookies";
 
 // Sử dụng type từ backend API
 type User = BackendUserProfile;
@@ -12,6 +25,7 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  permissions?: string[];
 }
 
 export function useAuth() {
@@ -21,6 +35,7 @@ export function useAuth() {
     refreshToken: null,
     isAuthenticated: false,
     isLoading: true,
+    permissions: [],
   });
 
   const router = useRouter();
@@ -58,18 +73,17 @@ export function useAuth() {
         isAuthenticated: false,
       }));
 
-      // Xóa token khỏi localStorage
-      localStorage.removeItem("sessionToken");
-      localStorage.removeItem("refreshToken");
+      // Xóa token khỏi cookies
+      clearAuthCookies();
     }
   }, []);
 
-  // Khởi tạo auth state từ localStorage
+  // Khởi tạo auth state từ cookies
   useEffect(() => {
     const initializeAuth = () => {
       try {
-        const token = localStorage.getItem("sessionToken");
-        const refreshToken = localStorage.getItem("refreshToken");
+        const token = getCookie("sessionToken");
+        const refreshToken = getCookie("refreshToken");
 
         if (token) {
           setAuthState((prev) => ({
@@ -117,11 +131,8 @@ export function useAuth() {
           console.log("User data:", user); // Debug log
           console.log("Token:", token); // Debug log
 
-          // Lưu vào localStorage
-          localStorage.setItem("sessionToken", token);
-          if (refreshToken) {
-            localStorage.setItem("refreshToken", refreshToken);
-          }
+          // Lưu vào cookies
+          setAuthCookies(token, refreshToken);
 
           // Cập nhật state với user data đã được xử lý
           const userData: BackendUserProfile = {
@@ -148,7 +159,9 @@ export function useAuth() {
           const locale = pathname.split("/")[1] || "vi"; // Extract locale from current path
           const redirectPath = `/${locale}/me`;
           console.log("Redirecting to:", redirectPath); // Debug log
-          router.push(redirectPath);
+
+          // Sử dụng replace để tránh quay lại trang login khi bấm back
+          router.replace(redirectPath);
 
           return { success: true };
         } else {
@@ -156,7 +169,83 @@ export function useAuth() {
         }
       } catch (error: any) {
         console.error("Login error:", error);
-        toast.error(error.message || "Đăng nhập thất bại");
+        // Chỉ hiển thị toast lỗi nếu chắc chắn thất bại (không trong quá trình redirect sau khi success)
+        if (!error?.silent) {
+          toast.error(error.message || "Đăng nhập thất bại");
+        }
+        setAuthState((prev) => ({ ...prev, isLoading: false }));
+        return { success: false, error: error.message };
+      }
+    },
+    [router, pathname]
+  );
+
+  // Enhanced login function with additional fields
+  const loginExtended = useCallback(
+    async (loginData: ExtendedLoginBodyType) => {
+      try {
+        setAuthState((prev) => ({ ...prev, isLoading: true }));
+
+        const result = await authApiRequest.loginExtended(loginData);
+        console.log("Extended Login result:", result); // Debug log
+
+        if (result.success && result.data) {
+          const { user, token, refreshToken, expiresIn, permissions } =
+            result.data;
+
+          console.log("User data:", user); // Debug log
+          console.log("Token:", token); // Debug log
+          console.log("Permissions:", permissions); // Debug log
+
+          // Lưu vào cookies - setAuthCookies chỉ nhận token và refreshToken
+          setAuthCookies(token, refreshToken);
+
+          // Cập nhật state với user data và permissions
+          const userData: BackendUserProfile = {
+            ...user,
+            addresses: (user as any).addresses || [],
+            preferences: user.preferences
+              ? {
+                  ...user.preferences,
+                  notifications: {
+                    email: user.preferences.notifications?.email ?? true,
+                    sms: user.preferences.notifications?.sms ?? false,
+                    push: user.preferences.notifications?.push ?? true,
+                  },
+                }
+              : {
+                  language: "vi",
+                  currency: "VND",
+                  notifications: { email: true, sms: false, push: true },
+                },
+          };
+
+          setAuthState({
+            user: userData,
+            token,
+            refreshToken,
+            isAuthenticated: true,
+            isLoading: false,
+            permissions: permissions || [],
+          });
+
+          toast.success("Đăng nhập thành công!");
+
+          // Redirect logic
+          const locale = pathname.split("/")[1] || "vi";
+          const redirectPath = `/${locale}/me`;
+          console.log("Redirecting to:", redirectPath);
+
+          router.replace(redirectPath);
+          return { success: true };
+        } else {
+          throw new Error(result.message || "Đăng nhập thất bại");
+        }
+      } catch (error: any) {
+        console.error("Enhanced Login error:", error);
+        if (!error?.silent) {
+          toast.error(error.message || "Đăng nhập thất bại");
+        }
         setAuthState((prev) => ({ ...prev, isLoading: false }));
         return { success: false, error: error.message };
       }
@@ -178,9 +267,8 @@ export function useAuth() {
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      // Xóa token khỏi localStorage
-      localStorage.removeItem("sessionToken");
-      localStorage.removeItem("refreshToken");
+      // Xóa token khỏi cookies
+      clearAuthCookies();
 
       // Reset state
       setAuthState({
@@ -202,7 +290,7 @@ export function useAuth() {
   // Refresh token function
   const refreshAuth = useCallback(async () => {
     try {
-      const refreshToken = localStorage.getItem("refreshToken");
+      const refreshToken = getCookie("refreshToken");
       if (!refreshToken) {
         throw new Error("No refresh token");
       }
@@ -212,11 +300,8 @@ export function useAuth() {
       if (result.success && result.data) {
         const { token: newToken, refreshToken: newRefreshToken } = result.data;
 
-        // Cập nhật localStorage
-        localStorage.setItem("sessionToken", newToken);
-        if (newRefreshToken) {
-          localStorage.setItem("refreshToken", newRefreshToken);
-        }
+        // Cập nhật cookies
+        setAuthCookies(newToken, newRefreshToken);
 
         // Cập nhật state
         setAuthState((prev) => ({
@@ -255,6 +340,7 @@ export function useAuth() {
   return {
     ...authState,
     login,
+    loginExtended,
     logout,
     refreshAuth,
     hasRole,

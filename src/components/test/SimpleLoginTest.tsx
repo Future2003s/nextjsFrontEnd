@@ -25,14 +25,17 @@ export function SimpleLoginTest() {
         console.log("=== AFTER LOGIN ===");
         console.log("Current URL:", window.location.href);
         console.log("Current pathname:", window.location.pathname);
-        console.log(
-          "localStorage sessionToken:",
-          localStorage.getItem("sessionToken")
-        );
-        console.log(
-          "localStorage refreshToken:",
-          localStorage.getItem("refreshToken")
-        );
+        console.log("Cookies:", document.cookie);
+
+        // Parse cookies to show specific tokens
+        const cookies = document.cookie.split(";").reduce((acc, cookie) => {
+          const [key, value] = cookie.trim().split("=");
+          acc[key] = value;
+          return acc;
+        }, {} as Record<string, string>);
+
+        console.log("sessionToken cookie:", cookies.sessionToken);
+        console.log("refreshToken cookie:", cookies.refreshToken);
       }, 2000);
     } catch (error) {
       console.error("Login error:", error);

@@ -6,26 +6,56 @@ export const authSchema = z
     email: z
       .string()
       .email("Email không đúng định dạng")
-      .min(4, "Mật Khẩu Yêu cầu 4 ký tự"),
-    password: z.string().min(8, "Yêu cầu 8 ký tự"),
+      .min(4, "Email yêu cầu tối thiểu 4 ký tự"),
+    password: z.string().min(6, "Mật khẩu yêu cầu tối thiểu 6 ký tự"),
   })
   .strict();
 
+// Schema mở rộng cho login với optional fields
+export const loginSchema = z.object({
+  email: z
+    .string()
+    .email("Email không đúng định dạng")
+    .min(4, "Email yêu cầu tối thiểu 4 ký tự"),
+  password: z.string().min(6, "Mật khẩu yêu cầu tối thiểu 6 ký tự"),
+  rememberMe: z.boolean().optional().default(false),
+  deviceInfo: z
+    .object({
+      userAgent: z.string().optional(),
+      platform: z.enum(["web", "mobile", "desktop"]).optional().default("web"),
+    })
+    .optional(),
+});
+
 export const LoginRes = z.object({
-  status: z.number(),
+  success: z.boolean(),
   message: z.string(),
-  metaData: z.object({
-    data: z.object({
+  data: z.object({
+    user: z.object({
       _id: z.string(),
-      name: z.string(),
+      firstName: z.string(),
+      lastName: z.string(),
       email: z.string(),
-      password: z.string(),
       role: z.enum(RoleValues),
+      avatar: z.string().optional(),
+      isActive: z.boolean(),
+      isEmailVerified: z.boolean(),
+      lastLogin: z.string().optional(),
+      preferences: z
+        .object({
+          language: z.string().default("vi"),
+          currency: z.string().default("VND"),
+          notifications: z.object({
+            email: z.boolean().default(true),
+            push: z.boolean().default(true),
+          }),
+        })
+        .optional(),
     }),
-    token: z.object({
-      access_token: z.string(),
-      refresh_token: z.string(),
-    }),
+    token: z.string(),
+    refreshToken: z.string(),
+    expiresIn: z.number().optional(),
+    permissions: z.array(z.string()).optional(),
   }),
 });
 
@@ -40,3 +70,5 @@ export type RegisterRequestType = z.infer<typeof RegisterRequest>;
 export type LoginResType = z.infer<typeof LoginRes>;
 
 export type LoginBodyType = z.infer<typeof authSchema>;
+
+export type ExtendedLoginBodyType = z.infer<typeof loginSchema>;

@@ -1,4 +1,5 @@
 import { http } from "@/lib/http";
+import { API_CONFIG } from "@/lib/api-config";
 
 export interface BackendProduct {
   _id: string;
@@ -43,20 +44,22 @@ export interface ProductFilters {
   sortOrder?: "asc" | "desc";
 }
 
+// Product API requests to Node.js backend
 export const productsApiRequest = {
-  // Get all products with filters
+  // Get all products with optional filtering
   getAll: (filters?: ProductFilters): Promise<BackendProductResponse> => {
-    const params = new URLSearchParams();
+    const queryParams = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          params.append(key, value.toString());
+          queryParams.append(key, String(value));
         }
       });
     }
-
-    const queryString = params.toString();
-    const url = queryString ? `/products?${queryString}` : "/products";
+    const queryString = queryParams.toString();
+    const url = queryString
+      ? `${API_CONFIG.PRODUCTS.ALL}?${queryString}`
+      : API_CONFIG.PRODUCTS.ALL;
     return http.get(url);
   },
 
@@ -64,45 +67,59 @@ export const productsApiRequest = {
   getById: (
     id: string
   ): Promise<{ success: boolean; data: BackendProduct }> => {
-    return http.get(`/products/${id}`);
+    return http.get(API_CONFIG.PRODUCTS.BY_ID.replace(":id", id));
   },
 
   // Get products by category
   getByCategory: (
-    category: string,
-    page = 1,
-    limit = 20
+    categoryId: string,
+    filters?: ProductFilters
   ): Promise<BackendProductResponse> => {
-    return http.get(
-      `/products?category=${category}&page=${page}&limit=${limit}`
-    );
+    const queryParams = new URLSearchParams();
+    queryParams.append("category", categoryId);
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    const url = `${API_CONFIG.PRODUCTS.BY_CATEGORY}?${queryString}`;
+    return http.get(url);
   },
 
   // Search products
   search: (
     query: string,
-    page = 1,
-    limit = 20
+    filters?: ProductFilters
   ): Promise<BackendProductResponse> => {
-    return http.get(
-      `/products?search=${encodeURIComponent(
-        query
-      )}&page=${page}&limit=${limit}`
-    );
+    const queryParams = new URLSearchParams();
+    queryParams.append("search", query);
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    const url = `${API_CONFIG.PRODUCTS.SEARCH}?${queryString}`;
+    return http.get(url);
   },
 
   // Get featured products
-  getFeatured: (limit = 10): Promise<BackendProductResponse> => {
-    return http.get(`/products?featured=true&limit=${limit}`);
+  getFeatured: (): Promise<BackendProductResponse> => {
+    return http.get(API_CONFIG.PRODUCTS.FEATURED);
   },
 
   // Get new arrivals
-  getNewArrivals: (limit = 10): Promise<BackendProductResponse> => {
-    return http.get(`/products?sortBy=createdAt&sortOrder=desc&limit=${limit}`);
+  getNewArrivals: (): Promise<BackendProductResponse> => {
+    return http.get(API_CONFIG.PRODUCTS.NEW_ARRIVALS);
   },
 
   // Get products on sale
-  getOnSale: (limit = 10): Promise<BackendProductResponse> => {
-    return http.get(`/products?onSale=true&limit=${limit}`);
+  getOnSale: (): Promise<BackendProductResponse> => {
+    return http.get(API_CONFIG.PRODUCTS.ON_SALE);
   },
 };

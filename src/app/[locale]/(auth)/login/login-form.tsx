@@ -4,7 +4,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Mail, Lock, Globe } from "lucide-react";
-import { authSchema, LoginBodyType } from "@/shemaValidation/auth.schema";
+import {
+  authSchema,
+  LoginBodyType,
+  ExtendedLoginBodyType,
+  loginSchema,
+} from "@/shemaValidation/auth.schema";
 import { envConfig } from "@/config";
 import { authApiRequest } from "@/apiRequests/auth";
 import { toast } from "sonner";
@@ -29,7 +34,7 @@ function LoginForm() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, loginExtended } = useAuth();
   const t = useTranslations();
 
   const {
@@ -43,15 +48,28 @@ function LoginForm() {
   const onSubmit = async (data: LoginBodyType) => {
     setIsSubmitting(true);
     try {
-      const result = await login(data.email, data.password);
+      // Nếu có rememberMe hoặc muốn gửi deviceInfo, sử dụng loginExtended
+      if (rememberMe) {
+        const extendedLoginData: ExtendedLoginBodyType = {
+          email: data.email,
+          password: data.password,
+          rememberMe,
+          deviceInfo: {
+            userAgent: navigator.userAgent,
+            platform: "web" as const,
+          },
+        };
 
-      if (result.success) {
-        // Login successful - redirect will be handled by useAuth hook
-        // Keep isSubmitting true until component unmounts
-        return;
+        const result = await loginExtended(extendedLoginData);
+        if (!result.success) {
+          setIsSubmitting(false);
+        }
       } else {
-        // Login failed
-        setIsSubmitting(false);
+        // Sử dụng basic login
+        const result = await login(data.email, data.password);
+        if (!result.success) {
+          setIsSubmitting(false);
+        }
       }
     } catch (error) {
       console.error("Login error:", error);

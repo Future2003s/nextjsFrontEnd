@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { envConfig } from "@/config";
 import { proxyJson } from "@/lib/next-api-auth";
+import { API_CONFIG } from "@/lib/api-config";
 
 // This route proxies cart operations to the backend. Configure endpoints via env if needed.
 // Supported templates (optional):
@@ -17,9 +17,12 @@ function buildCandidates(templateEnv: string | undefined, fallbacks: string[]) {
 }
 
 export async function GET(request: NextRequest) {
-  const base = envConfig.NEXT_PUBLIC_API_END_POINT;
+  const base = API_CONFIG.API_BASE_URL;
   const template = process.env.API_CART_GET_URL_TEMPLATE; // e.g., /cart or /cart/me
-  const candidates = buildCandidates(template, ["/cart", "/cart/me"]);
+  const candidates = buildCandidates(template, [
+    API_CONFIG.CART.GET,
+    `${API_CONFIG.CART.GET}/me`,
+  ]);
   const url = new URL(request.url);
   const qs = url.searchParams.toString();
 
@@ -40,9 +43,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const base = envConfig.NEXT_PUBLIC_API_END_POINT;
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
   const template = process.env.API_CART_ADD_URL_TEMPLATE; // e.g., /cart/items
-  const candidates = buildCandidates(template, ["/cart/items", "/cart"]);
+  const candidates = buildCandidates(template, [
+    "/api/v1/cart/items",
+    "/api/v1/cart",
+  ]);
   let body: any = null;
   try {
     body = await request.json();
@@ -68,7 +74,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const base = envConfig.NEXT_PUBLIC_API_END_POINT;
+  const base = API_CONFIG.API_BASE_URL;
   const template = process.env.API_CART_UPDATE_URL_TEMPLATE; // e.g., /cart/items/{itemId}
   let body: any = null;
   try {
@@ -112,7 +118,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const base = envConfig.NEXT_PUBLIC_API_END_POINT;
+  const base = API_CONFIG.API_BASE_URL;
   const template = process.env.API_CART_DELETE_URL_TEMPLATE; // e.g., /cart/items/{itemId}
 
   let body: any = null;

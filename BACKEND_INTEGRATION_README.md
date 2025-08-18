@@ -185,7 +185,9 @@ function Header() {
 
 ## 🔒 Bảo mật
 
-- **JWT tokens** được lưu trong localStorage
+- **JWT tokens** được lưu trong cookies với `SameSite=Strict`
+- **Session token** hết hạn sau 7 ngày
+- **Refresh token** hết hạn sau 30 ngày
 - **Auto-refresh** token khi hết hạn
 - **Role-based access control** cho admin routes
 - **Secure HTTP headers** với Helmet

@@ -1,4 +1,5 @@
 import { http } from "@/lib/http";
+import { API_CONFIG } from "@/lib/api-config";
 
 export interface OrderItem {
   _id: string;
@@ -77,13 +78,14 @@ export interface OrdersListResponse {
   };
 }
 
+// Order API requests to Node.js backend
 export const ordersApiRequest = {
   // Create new order
   createOrder: (
     token: string,
     body: CreateOrderRequest
   ): Promise<OrderResponse> => {
-    return http.post("/orders", body, {
+    return http.post(API_CONFIG.ORDERS.CREATE, body, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -94,74 +96,84 @@ export const ordersApiRequest = {
     page = 1,
     limit = 20
   ): Promise<OrdersListResponse> => {
-    return http.get(`/orders?page=${page}&limit=${limit}`, {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    const url = `${API_CONFIG.ORDERS.USER_ORDERS}?${queryParams.toString()}`;
+    return http.get(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
 
   // Get order by ID
   getOrderById: (token: string, orderId: string): Promise<OrderResponse> => {
-    return http.get(`/orders/${orderId}`, {
+    return http.get(API_CONFIG.ORDERS.BY_ID.replace(":id", orderId), {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
 
   // Cancel order
-  cancelOrder: (token: string, orderId: string): Promise<OrderResponse> => {
-    return http.put(
-      `/orders/${orderId}/cancel`,
-      {},
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
-  },
-
-  // Get order tracking
-  getOrderTracking: (token: string, orderId: string): Promise<any> => {
-    return http.get(`/orders/${orderId}/tracking`, {
+  cancelOrder: (
+    token: string,
+    orderId: string,
+    reason?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const body = reason ? { reason } : {};
+    return http.put(API_CONFIG.ORDERS.CANCEL.replace(":id", orderId), body, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
 
-  // Admin: Get all orders
+  // Get order tracking
+  getOrderTracking: (
+    token: string,
+    orderId: string
+  ): Promise<{ success: boolean; data: any }> => {
+    return http.get(API_CONFIG.ORDERS.TRACKING.replace(":id", orderId), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+
+  // Get all orders (admin only)
   getAllOrders: (
     token: string,
     filters?: {
       status?: string;
-      paymentStatus?: string;
-      startDate?: string;
-      endDate?: string;
       page?: number;
       limit?: number;
+      startDate?: string;
+      endDate?: string;
     }
   ): Promise<OrdersListResponse> => {
-    const params = new URLSearchParams();
+    const queryParams = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          params.append(key, value.toString());
+          queryParams.append(key, String(value));
         }
       });
     }
-
-    const queryString = params.toString();
-    const url = queryString ? `/orders/admin?${queryString}` : "/orders/admin";
-
+    const queryString = queryParams.toString();
+    const url = queryString
+      ? `${API_CONFIG.ORDERS.ALL}?${queryString}`
+      : API_CONFIG.ORDERS.ALL;
     return http.get(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
 
-  // Admin: Update order status
+  // Update order status (admin only)
   updateOrderStatus: (
     token: string,
     orderId: string,
-    status: string
-  ): Promise<OrderResponse> => {
+    status: string,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const body = notes ? { status, notes } : { status };
     return http.put(
-      `/orders/${orderId}/status`,
-      { status },
+      API_CONFIG.ORDERS.UPDATE_STATUS.replace(":id", orderId),
+      body,
       {
         headers: { Authorization: `Bearer ${token}` },
       }

@@ -1,4 +1,5 @@
 import { http } from "@/lib/http";
+import { API_CONFIG } from "@/lib/api-config";
 
 export interface Category {
   _id: string;
@@ -30,44 +31,45 @@ export interface CategoryResponse {
   data: Category;
 }
 
+// Category API requests to Node.js backend
 export const categoriesApiRequest = {
   // Get all categories
   getAll: (): Promise<CategoriesResponse> => {
-    return http.get("/categories");
+    return http.get(API_CONFIG.CATEGORIES.ALL);
   },
 
   // Get category by ID
   getById: (id: string): Promise<CategoryResponse> => {
-    return http.get(`/categories/${id}`);
+    return http.get(API_CONFIG.CATEGORIES.BY_ID.replace(":id", id));
   },
 
   // Get category by slug
   getBySlug: (slug: string): Promise<CategoryResponse> => {
-    return http.get(`/categories/slug/${slug}`);
+    return http.get(API_CONFIG.CATEGORIES.BY_SLUG.replace(":slug", slug));
   },
 
-  // Get category tree (hierarchical)
+  // Get category tree structure
   getTree: (): Promise<{ success: boolean; data: CategoryTree[] }> => {
-    return http.get("/categories/tree");
+    return http.get(API_CONFIG.CATEGORIES.TREE);
   },
 
-  // Get main categories (no parent)
+  // Get main categories only
   getMainCategories: (): Promise<CategoriesResponse> => {
-    return http.get("/categories/main");
+    return http.get(API_CONFIG.CATEGORIES.MAIN);
   },
 
-  // Get subcategories by parent ID
+  // Get subcategories of a parent category
   getSubcategories: (parentId: string): Promise<CategoriesResponse> => {
-    return http.get(`/categories/${parentId}/children`);
+    return http.get(`${API_CONFIG.CATEGORIES.SUB}?parentId=${parentId}`);
   },
 
-  // Get active categories
+  // Get only active categories
   getActive: (): Promise<CategoriesResponse> => {
-    return http.get("/categories?isActive=true");
+    return http.get(API_CONFIG.CATEGORIES.ACTIVE);
   },
 
   // Get categories with product count
   getWithProductCount: (): Promise<CategoriesResponse> => {
-    return http.get("/categories?includeProductCount=true");
+    return http.get(API_CONFIG.CATEGORIES.WITH_PRODUCT_COUNT);
   },
 };
