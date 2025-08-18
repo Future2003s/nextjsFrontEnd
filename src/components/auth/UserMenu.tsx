@@ -72,7 +72,7 @@ export function UserMenu() {
               <span className="inline-block bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-xs font-medium">
                 {user.role.toUpperCase()}
               </span>
-              {user.isEmailVerified && (
+              {(user.isEmailVerified as any) && (
                 <span className="inline-block bg-green-50 text-green-600 px-2 py-0.5 rounded-full text-xs font-medium">
                   ✓
                 </span>

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { productsApi, ProductListItem } from "@/apiRequests/products";
+import { productsApiRequest, BackendProduct } from "@/apiRequests/products";
 import { metaApi } from "@/apiRequests/meta";
 import Link from "next/link";
 import { Search, Filter, Grid3X3, List, SortAsc, SortDesc } from "lucide-react";
@@ -32,7 +32,7 @@ type SortOption =
   | "newest";
 
 export default function ShopPage() {
-  const [items, setItems] = useState<ProductListItem[]>([]);
+  const [items, setItems] = useState<BackendProduct[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [q, setQ] = useState("");
@@ -60,10 +60,20 @@ export default function ShopPage() {
           metaApi.categories(),
           metaApi.brands(),
         ]);
-        setCategories(categoriesRes?.data || []);
-        setBrands(brandsRes?.data || []);
+
+        const normalizeArray = (res: any) => {
+          if (Array.isArray(res)) return res;
+          if (Array.isArray(res?.data)) return res.data;
+          if (Array.isArray(res?.data?.items)) return res.data.items;
+          return [];
+        };
+
+        setCategories(normalizeArray(categoriesRes));
+        setBrands(normalizeArray(brandsRes));
       } catch (error) {
         console.error("Failed to load meta data:", error);
+        setCategories([]);
+        setBrands([]);
       }
     };
     loadMeta();
@@ -75,13 +85,13 @@ export default function ShopPage() {
       setLoading(true);
       try {
         const params: any = {};
-        if (q) params.q = q;
+        if (q) params.search = q;
         if (selectedCategory && selectedCategory !== "all")
-          params.categoryId = selectedCategory;
+          params.category = selectedCategory;
         if (selectedBrand && selectedBrand !== "all")
-          params.brandId = selectedBrand;
+          params.brand = selectedBrand;
 
-        const res: any = await productsApi.list(params);
+        const res = await productsApiRequest.getAll(params);
         setItems(res?.data ?? []);
       } catch (error) {
         console.error("Failed to load products:", error);
@@ -303,7 +313,7 @@ export default function ShopPage() {
                 }`}
               >
                 {sortedItems.map((product) => (
-                  <Link key={product.id} href={`/products/${product.id}`}>
+                  <Link key={product._id} href={`/products/${product._id}`}>
                     <Card className="group overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-xl hover:-translate-y-1">
                       <div
                         className={`${
@@ -313,7 +323,7 @@ export default function ShopPage() {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={
-                            product.imageUrls?.[0] ||
+                            product.images?.[0] ||
                             "https://placehold.co/600x600"
                           }
                           alt={product.name}
@@ -322,18 +332,14 @@ export default function ShopPage() {
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
 
                         {/* Stock Status Badge */}
-                        {product.stockQuantity !== undefined && (
+                        {product.stock !== undefined && (
                           <Badge
                             variant={
-                              product.stockQuantity > 0
-                                ? "default"
-                                : "destructive"
+                              product.stock > 0 ? "default" : "destructive"
                             }
                             className="absolute top-3 right-3"
                           >
-                            {product.stockQuantity > 0
-                              ? "Còn hàng"
-                              : "Hết hàng"}
+                            {product.stock > 0 ? "Còn hàng" : "Hết hàng"}
                           </Badge>
                         )}
                       </div>
@@ -354,9 +360,9 @@ export default function ShopPage() {
                             {formatCurrency(Number(product.price))}
                           </span>
 
-                          {product.stockQuantity !== undefined && (
+                          {product.stock !== undefined && (
                             <span className="text-sm text-muted-foreground">
-                              SL: {product.stockQuantity}
+                              SL: {product.stock}
                             </span>
                           )}
                         </div>
