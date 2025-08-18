@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { productsApiRequest, BackendProduct } from "@/apiRequests/products";
+import { productApiRequest, Product } from "@/apiRequests/products";
 import { metaApi } from "@/apiRequests/meta";
 import Link from "next/link";
 import { Search, Filter, Grid3X3, List, SortAsc, SortDesc } from "lucide-react";
@@ -32,7 +32,7 @@ type SortOption =
   | "newest";
 
 export default function ShopPage() {
-  const [items, setItems] = useState<BackendProduct[]>([]);
+  const [items, setItems] = useState<Product[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [q, setQ] = useState("");
@@ -91,7 +91,7 @@ export default function ShopPage() {
         if (selectedBrand && selectedBrand !== "all")
           params.brand = selectedBrand;
 
-        const res = await productsApiRequest.getAll(params);
+        const res = await productApiRequest.getProducts(params);
         setItems(res?.data ?? []);
       } catch (error) {
         console.error("Failed to load products:", error);
@@ -332,14 +332,14 @@ export default function ShopPage() {
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
 
                         {/* Stock Status Badge */}
-                        {product.stock !== undefined && (
+                        {product.quantity !== undefined && (
                           <Badge
                             variant={
-                              product.stock > 0 ? "default" : "destructive"
+                              product.quantity > 0 ? "default" : "destructive"
                             }
                             className="absolute top-3 right-3"
                           >
-                            {product.stock > 0 ? "Còn hàng" : "Hết hàng"}
+                            {product.quantity > 0 ? "Còn hàng" : "Hết hàng"}
                           </Badge>
                         )}
                       </div>
@@ -360,9 +360,9 @@ export default function ShopPage() {
                             {formatCurrency(Number(product.price))}
                           </span>
 
-                          {product.stock !== undefined && (
+                          {product.quantity !== undefined && (
                             <span className="text-sm text-muted-foreground">
-                              SL: {product.stock}
+                              SL: {product.quantity}
                             </span>
                           )}
                         </div>

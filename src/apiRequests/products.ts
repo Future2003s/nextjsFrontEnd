@@ -1,125 +1,212 @@
 import { http } from "@/lib/http";
 import { API_CONFIG } from "@/lib/api-config";
 
-export interface BackendProduct {
+// Product types based on backend model
+export interface Product {
   _id: string;
   name: string;
+  slug: string;
   description: string;
   price: number;
-  originalPrice?: number;
+  compareAtPrice?: number;
+  cost?: number;
+  sku: string;
+  barcode?: string;
+  trackQuantity: boolean;
+  quantity: number;
+  sold: number;
   images: string[];
-  category: string;
-  brand?: string;
-  stock: number;
+  category:
+    | string
+    | {
+        _id: string;
+        name: string;
+        slug: string;
+      };
+  brand?:
+    | string
+    | {
+        _id: string;
+        name: string;
+        slug: string;
+      };
+  tags: string[];
+  status: "active" | "draft" | "archived";
+  featured: boolean;
+  specifications?: Record<string, any>;
+  weight?: number;
+  dimensions?: {
+    length: number;
+    width: number;
+    height: number;
+  };
   rating: number;
-  reviewCount: number;
-  isActive: boolean;
+  numReviews: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface BackendProductResponse {
+export interface ProductsResponse {
   success: boolean;
-  message: string;
-  data: BackendProduct[];
+  message?: string;
+  data: Product[];
   pagination?: {
     page: number;
     limit: number;
     total: number;
-    totalPages: number;
+    pages: number;
   };
 }
 
-export interface ProductFilters {
+export interface ProductResponse {
+  success: boolean;
+  message?: string;
+  data: Product;
+}
+
+export interface ProductQueryParams {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  order?: "asc" | "desc";
   category?: string;
   brand?: string;
   minPrice?: number;
   maxPrice?: number;
-  rating?: number;
-  inStock?: boolean;
+  featured?: boolean;
+  status?: "active" | "draft" | "archived";
   search?: string;
-  page?: number;
-  limit?: number;
-  sortBy?: "price" | "rating" | "createdAt" | "name";
-  sortOrder?: "asc" | "desc";
 }
 
-// Product API requests to Node.js backend
-export const productsApiRequest = {
-  // Get all products with optional filtering
-  getAll: (filters?: ProductFilters): Promise<BackendProductResponse> => {
-    const queryParams = new URLSearchParams();
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          queryParams.append(key, String(value));
-        }
-      });
-    }
-    const queryString = queryParams.toString();
-    const url = queryString
-      ? `${API_CONFIG.PRODUCTS.ALL}?${queryString}`
-      : API_CONFIG.PRODUCTS.ALL;
-    return http.get(url);
+// Product API requests
+export const productApiRequest = {
+  // Get all products with filters
+  getProducts: (params?: ProductQueryParams): Promise<ProductsResponse> => {
+    const queryString = params
+      ? new URLSearchParams(params as any).toString()
+      : "";
+    return http.get(
+      `${API_CONFIG.PRODUCTS.ALL}${queryString ? `?${queryString}` : ""}`
+    );
   },
 
-  // Get product by ID
-  getById: (
-    id: string
-  ): Promise<{ success: boolean; data: BackendProduct }> => {
+  // Get single product by ID
+  getProduct: (id: string): Promise<ProductResponse> => {
     return http.get(API_CONFIG.PRODUCTS.BY_ID.replace(":id", id));
   },
 
-  // Get products by category
-  getByCategory: (
-    categoryId: string,
-    filters?: ProductFilters
-  ): Promise<BackendProductResponse> => {
-    const queryParams = new URLSearchParams();
-    queryParams.append("category", categoryId);
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          queryParams.append(key, String(value));
-        }
-      });
-    }
-    const queryString = queryParams.toString();
-    const url = `${API_CONFIG.PRODUCTS.BY_CATEGORY}?${queryString}`;
-    return http.get(url);
-  },
-
   // Search products
-  search: (
+  searchProducts: (
     query: string,
-    filters?: ProductFilters
-  ): Promise<BackendProductResponse> => {
-    const queryParams = new URLSearchParams();
-    queryParams.append("search", query);
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          queryParams.append(key, String(value));
-        }
-      });
-    }
-    const queryString = queryParams.toString();
-    const url = `${API_CONFIG.PRODUCTS.SEARCH}?${queryString}`;
-    return http.get(url);
+    page = 1,
+    limit = 10
+  ): Promise<ProductsResponse> => {
+    const params = new URLSearchParams({
+      q: query,
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    return http.get(`${API_CONFIG.PRODUCTS.SEARCH}?${params}`);
   },
 
   // Get featured products
-  getFeatured: (): Promise<BackendProductResponse> => {
+  getFeaturedProducts: (): Promise<ProductsResponse> => {
     return http.get(API_CONFIG.PRODUCTS.FEATURED);
   },
 
-  // Get new arrivals
-  getNewArrivals: (): Promise<BackendProductResponse> => {
-    return http.get(API_CONFIG.PRODUCTS.NEW_ARRIVALS);
+  // Get products by category
+  getProductsByCategory: (
+    categoryId: string,
+    params?: ProductQueryParams
+  ): Promise<ProductsResponse> => {
+    const queryString = params
+      ? new URLSearchParams(params as any).toString()
+      : "";
+    const url = `/products/category/${categoryId}${
+      queryString ? `?${queryString}` : ""
+    }`;
+    return http.get(url);
   },
 
-  // Get products on sale
-  getOnSale: (): Promise<BackendProductResponse> => {
-    return http.get(API_CONFIG.PRODUCTS.ON_SALE);
+  // Get products by brand
+  getProductsByBrand: (
+    brandId: string,
+    params?: ProductQueryParams
+  ): Promise<ProductsResponse> => {
+    const queryString = params
+      ? new URLSearchParams(params as any).toString()
+      : "";
+    const url = `/products/brand/${brandId}${
+      queryString ? `?${queryString}` : ""
+    }`;
+    return http.get(url);
+  },
+
+  // Admin/Seller operations
+  createProduct: (
+    token: string,
+    productData: Partial<Product>
+  ): Promise<ProductResponse> => {
+    return http.post("/products", productData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+
+  updateProduct: (
+    token: string,
+    id: string,
+    productData: Partial<Product>
+  ): Promise<ProductResponse> => {
+    return http.put(`/products/${id}`, productData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+
+  deleteProduct: (
+    token: string,
+    id: string
+  ): Promise<{ success: boolean; message: string }> => {
+    return http.delete(`/products/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+
+  updateProductStock: (
+    token: string,
+    id: string,
+    quantity: number
+  ): Promise<ProductResponse> => {
+    return http.put(
+      `/products/${id}/stock`,
+      { quantity },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
   },
 };
+
+// Helper function to build product image URL
+export function getProductImageUrl(imagePath: string): string {
+  if (imagePath.startsWith("http")) {
+    return imagePath;
+  }
+  return `${process.env.NEXT_PUBLIC_BACKEND_URL}${imagePath}`;
+}
+
+// Helper function to format price
+export function formatPrice(price: number, currency = "VND"): string {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: currency,
+  }).format(price);
+}
+
+// Helper function to calculate discount percentage
+export function calculateDiscountPercentage(
+  price: number,
+  compareAtPrice?: number
+): number {
+  if (!compareAtPrice || compareAtPrice <= price) return 0;
+  return Math.round(((compareAtPrice - price) / compareAtPrice) * 100);
+}

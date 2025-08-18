@@ -1,33 +1,10 @@
 import { http } from "@/lib/http";
 import { API_CONFIG } from "@/lib/api-config";
 
-export interface UserProfile {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
-  role: string;
-  avatar?: string;
-  isActive: boolean;
-  isEmailVerified: boolean;
-  addresses: UserAddress[];
-  preferences: {
-    language: string;
-    currency: string;
-    notifications: {
-      email: boolean;
-      sms: boolean;
-      push: boolean;
-    };
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
+// User types based on backend model
 export interface UserAddress {
-  _id: string;
-  type: string;
+  _id?: string;
+  type: "home" | "work" | "other";
   street: string;
   city: string;
   state: string;
@@ -36,31 +13,55 @@ export interface UserAddress {
   isDefault: boolean;
 }
 
-export interface UpdateProfileRequest {
-  firstName?: string;
-  lastName?: string;
+export interface UserPreferences {
+  language: "vi" | "en" | "ja";
+  currency: string;
+  notifications: {
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+  };
+}
+
+export interface UserProfile {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
   phone?: string;
   avatar?: string;
+  role: "customer" | "admin" | "seller";
+  isActive: boolean;
+  isEmailVerified: boolean;
+  lastLogin?: string;
+  addresses: UserAddress[];
+  preferences: UserPreferences;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface AddAddressRequest {
-  type: string;
-  street: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  country: string;
-  isDefault?: boolean;
+export interface UserProfileResponse {
+  success: boolean;
+  message?: string;
+  data: UserProfile;
 }
 
-export interface UpdateAddressRequest extends Partial<AddAddressRequest> {}
+export interface AddressesResponse {
+  success: boolean;
+  message?: string;
+  data: UserAddress[];
+}
 
-// User API requests to Node.js backend
-export const usersApiRequest = {
+export interface AddressResponse {
+  success: boolean;
+  message?: string;
+  data: UserAddress;
+}
+
+// User API requests
+export const userApiRequest = {
   // Get user profile
-  getProfile: (
-    token: string
-  ): Promise<{ success: boolean; data: UserProfile }> => {
+  getProfile: (token: string): Promise<UserProfileResponse> => {
     return http.get(API_CONFIG.USERS.PROFILE, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -69,17 +70,15 @@ export const usersApiRequest = {
   // Update user profile
   updateProfile: (
     token: string,
-    body: UpdateProfileRequest
-  ): Promise<{ success: boolean; data: UserProfile }> => {
-    return http.put(API_CONFIG.USERS.PROFILE, body, {
+    profileData: Partial<UserProfile>
+  ): Promise<UserProfileResponse> => {
+    return http.put(API_CONFIG.USERS.PROFILE, profileData, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
 
   // Get user addresses
-  getAddresses: (
-    token: string
-  ): Promise<{ success: boolean; data: UserAddress[] }> => {
+  getAddresses: (token: string): Promise<AddressesResponse> => {
     return http.get(API_CONFIG.USERS.ADDRESSES, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -88,9 +87,9 @@ export const usersApiRequest = {
   // Add new address
   addAddress: (
     token: string,
-    body: AddAddressRequest
-  ): Promise<{ success: boolean; data: UserAddress }> => {
-    return http.post(API_CONFIG.USERS.ADDRESSES, body, {
+    address: UserAddress
+  ): Promise<AddressResponse> => {
+    return http.post(API_CONFIG.USERS.ADDRESSES, address, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -99,9 +98,9 @@ export const usersApiRequest = {
   updateAddress: (
     token: string,
     addressId: string,
-    body: UpdateAddressRequest
-  ): Promise<{ success: boolean; data: UserAddress }> => {
-    return http.put(`${API_CONFIG.USERS.ADDRESSES}/${addressId}`, body, {
+    address: Partial<UserAddress>
+  ): Promise<AddressResponse> => {
+    return http.put(`/users/addresses/${addressId}`, address, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -111,7 +110,7 @@ export const usersApiRequest = {
     token: string,
     addressId: string
   ): Promise<{ success: boolean; message: string }> => {
-    return http.delete(`${API_CONFIG.USERS.ADDRESSES}/${addressId}`, {
+    return http.delete(`/users/addresses/${addressId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
@@ -120,9 +119,9 @@ export const usersApiRequest = {
   setDefaultAddress: (
     token: string,
     addressId: string
-  ): Promise<{ success: boolean; message: string }> => {
+  ): Promise<AddressResponse> => {
     return http.put(
-      `${API_CONFIG.USERS.ADDRESSES}/${addressId}/default`,
+      `/users/addresses/${addressId}/default`,
       {},
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -130,62 +129,70 @@ export const usersApiRequest = {
     );
   },
 
-  // Update notification preferences
-  updateNotificationPreferences: (
+  // Update user preferences
+  updatePreferences: (
     token: string,
-    preferences: {
-      email: boolean;
-      sms: boolean;
-      push: boolean;
-    }
-  ): Promise<{ success: boolean; message: string }> => {
-    return http.put(
-      API_CONFIG.USERS.PREFERENCES,
-      { notifications: preferences },
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
-  },
-
-  // Update language preference
-  updateLanguage: (
-    token: string,
-    language: string
-  ): Promise<{ success: boolean; message: string }> => {
-    return http.put(
-      API_CONFIG.USERS.PREFERENCES,
-      { language },
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
-  },
-
-  // Update currency preference
-  updateCurrency: (
-    token: string,
-    currency: string
-  ): Promise<{ success: boolean; message: string }> => {
-    return http.put(
-      API_CONFIG.USERS.PREFERENCES,
-      { currency },
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    preferences: Partial<UserPreferences>
+  ): Promise<UserProfileResponse> => {
+    return http.put(API_CONFIG.USERS.PREFERENCES, preferences, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
   },
 
   // Upload avatar
-  uploadAvatar: (
-    token: string,
-    file: File
-  ): Promise<{ success: boolean; data: { avatarUrl: string } }> => {
+  uploadAvatar: (token: string, file: File): Promise<UserProfileResponse> => {
     const formData = new FormData();
     formData.append("avatar", file);
 
-    return http.put(API_CONFIG.USERS.AVATAR, formData, {
+    return fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/${process.env.NEXT_PUBLIC_API_VERSION}${API_CONFIG.USERS.AVATAR}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    ).then((res) => res.json());
+  },
+
+  // Delete account
+  deleteAccount: (
+    token: string
+  ): Promise<{ success: boolean; message: string }> => {
+    return http.delete("/users/account", {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
 };
+
+// Helper function to get full name
+export function getUserFullName(user: UserProfile): string {
+  return `${user.firstName} ${user.lastName}`.trim();
+}
+
+// Helper function to get avatar URL
+export function getUserAvatarUrl(avatar?: string): string {
+  if (!avatar) {
+    return "/images/default-avatar.png";
+  }
+  if (avatar.startsWith("http")) {
+    return avatar;
+  }
+  return `${process.env.NEXT_PUBLIC_BACKEND_URL}${avatar}`;
+}
+
+// Helper function to format address
+export function formatAddress(address: UserAddress): string {
+  return `${address.street}, ${address.city}, ${address.state} ${address.zipCode}, ${address.country}`;
+}
+
+// Helper function to get address label
+export function getAddressLabel(type: UserAddress["type"]): string {
+  const labels = {
+    home: "Nhà riêng",
+    work: "Văn phòng",
+    other: "Khác",
+  };
+  return labels[type] || type;
+}
