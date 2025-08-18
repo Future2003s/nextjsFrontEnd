@@ -43,7 +43,7 @@ function LoginForm() {
     handleSubmit,
   } = useForm<LoginBodyType>({ resolver: zodResolver(authSchema) });
 
-  // Sử dụng hook useAuth thay vì mutation
+  // Khi login thành công, token sẽ được lưu vào localStorage và cookie nhờ useAuth đã refactor
 
   const onSubmit = async (data: LoginBodyType) => {
     setIsSubmitting(true);

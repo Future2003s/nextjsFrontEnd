@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { productsApi, type ProductDetail } from "@/apiRequests/products";
+import { productApiRequest, type Product } from "@/apiRequests/products";
 import { useParams, useRouter } from "next/navigation";
 import BuyNowModal from "@/components/ui/buy-now-modal";
 import { useAppContextProvider } from "@/context/app-context";
@@ -25,13 +25,13 @@ const formatCurrency = (amount: number) =>
     amount
   );
 
-export default function ProductDetail() {
+export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params?.id as string;
   const { sessionToken } = useAppContextProvider();
 
-  const [item, setItem] = useState<ProductDetail | null>(null);
+  const [item, setItem] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [qty, setQty] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export default function ProductDetail() {
     const load = async () => {
       setLoading(true);
       try {
-        const res: any = await productsApi.detail(id);
+        const res = await productApiRequest.getProduct(id);
         setItem(res?.data ?? null);
       } finally {
         setLoading(false);
@@ -113,7 +113,7 @@ export default function ProductDetail() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={
-                    item.imageUrls?.[selectedImageIndex] ||
+                    item.images?.[selectedImageIndex] ||
                     "https://placehold.co/800x600"
                   }
                   alt={item.name}
@@ -131,9 +131,9 @@ export default function ProductDetail() {
               </Button>
 
               {/* Image Counter */}
-              {item.imageUrls?.length > 0 && (
+              {item.images?.length > 0 && (
                 <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
-                  {selectedImageIndex + 1} of {item.imageUrls.length}
+                  {selectedImageIndex + 1} of {item.images.length}
                 </div>
               )}
             </div>
@@ -146,20 +146,20 @@ export default function ProductDetail() {
             </div>
 
             {/* Thumbnail Gallery - Amazon Style */}
-            {item.imageUrls && item.imageUrls.length > 0 && (
+            {item.images && item.images.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium text-gray-700">
                     Product Images
                   </h3>
                   <span className="text-xs text-gray-500">
-                    {item.imageUrls.length} images
+                    {item.images.length} images
                   </span>
                 </div>
 
                 {/* Thumbnail Row */}
                 <div className="flex gap-2 overflow-x-auto pb-2">
-                  {item.imageUrls.map((url, i) => (
+                  {item.images.map((url, i) => (
                     <div
                       key={i}
                       onClick={() => setSelectedImageIndex(i)}
@@ -195,7 +195,7 @@ export default function ProductDetail() {
 
                 {/* Navigation Dots */}
                 <div className="flex justify-center gap-1">
-                  {item.imageUrls.map((_, i) => (
+                  {item.images.map((_, i) => (
                     <div
                       key={i}
                       className={`w-2 h-2 rounded-full transition-colors cursor-pointer ${
@@ -262,15 +262,13 @@ export default function ProductDetail() {
                       {item.categoryName}
                     </Badge>
                   )}
-                  {item.stockQuantity !== undefined && (
+                  {typeof item.quantity === "number" && (
                     <Badge
-                      variant={
-                        item.stockQuantity > 0 ? "default" : "destructive"
-                      }
+                      variant={item.quantity > 0 ? "default" : "destructive"}
                       className="text-xs"
                     >
-                      {item.stockQuantity > 0
-                        ? `Còn ${item.stockQuantity} sản phẩm`
+                      {item.quantity > 0
+                        ? `Còn ${item.quantity} sản phẩm`
                         : "Hết hàng"}
                     </Badge>
                   )}
@@ -285,12 +283,11 @@ export default function ProductDetail() {
                   <div className="text-2xl lg:text-3xl font-bold text-blue-600">
                     {formatCurrency(price)}
                   </div>
-                  {item.stockQuantity !== undefined &&
-                    item.stockQuantity > 0 && (
-                      <div className="text-sm text-green-600 font-medium">
-                        ✓ Còn hàng
-                      </div>
-                    )}
+                  {typeof item.quantity === "number" && item.quantity > 0 && (
+                    <div className="text-sm text-green-600 font-medium">
+                      ✓ Còn hàng
+                    </div>
+                  )}
                 </div>
 
                 {item.variants?.find((v) => v.id === selectedVariant) && (
@@ -302,24 +299,28 @@ export default function ProductDetail() {
               </div>
 
               {/* Variants */}
-              {item.variants?.length > 0 && (
+              {(item.variants?.length ?? 0) > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium text-gray-700">
                       Chọn biến thể
                     </div>
                     <span className="text-xs text-gray-500">
-                      {item.variants.length} lựa chọn
+                      {item.variants?.length ?? 0} lựa chọn
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {item.variants.map((variant) => (
+                    {(item.variants ?? []).map((variant: any) => (
                       <Button
-                        key={variant.id}
+                        key={variant._id || variant.id}
                         variant={
-                          selectedVariant === variant.id ? "default" : "outline"
+                          selectedVariant === (variant._id || variant.id)
+                            ? "default"
+                            : "outline"
                         }
-                        onClick={() => setSelectedVariant(variant.id)}
+                        onClick={() =>
+                          setSelectedVariant(variant._id || variant.id)
+                        }
                         className="h-12 justify-start px-3"
                       >
                         <div className="text-left">
@@ -368,7 +369,7 @@ export default function ProductDetail() {
                     Số lượng
                   </div>
                   <div className="text-xs text-gray-500">
-                    Còn {item.stockQuantity || 999} sản phẩm
+                    Còn {item.quantity ?? 999} sản phẩm
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -407,16 +408,16 @@ export default function ProductDetail() {
                         item.variants?.find((x) => x.id === selectedVariant) ||
                         null;
                       addItem({
-                        id: item.id,
-                        productId: item.id,
-                        variantId: variant?.id || null,
+                        id: (item as any)._id || (item as any).id,
+                        productId: (item as any)._id || (item as any).id,
+                        variantId: variant?._id || variant?.id || null,
                         variantName: variant?.name || null,
                         name: variant
                           ? `${item.name} - ${variant.name}`
                           : item.name,
                         price: Number(variant?.price ?? item.price) || 0,
                         quantity: qty,
-                        imageUrl: item.imageUrls?.[0],
+                        imageUrl: item.images?.[0],
                       });
                     }}
                   >

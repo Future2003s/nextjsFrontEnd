@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,15 +18,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve backend base URL with safe fallback
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_END_POINT || "http://localhost:8081/api/v1";
+
     // Forward to backend
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_END_POINT}/auth/login`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }
-    );
+    const res = await fetch(`${baseUrl}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
     const contentType = res.headers.get("content-type") || "application/json";
     let data;
@@ -45,40 +46,31 @@ export async function POST(request: NextRequest) {
     // Set cookies if login successful and tokens provided
     if (res.ok && data?.success && data?.data?.token) {
       const isProd = process.env.NODE_ENV === "production";
-      const sessionToken = data.data.token;
-      const refreshToken = data.data.refreshToken;
+      const sessionToken = data.data.token as string;
+      const refreshToken = data.data.refreshToken as string | undefined;
 
-      const accessCookie = [
-        `sessionToken=${sessionToken}`,
-        "Path=/",
-        "HttpOnly",
-        "SameSite=Lax",
-      ];
-      if (isProd) accessCookie.push("Secure");
+      const response = NextResponse.json(
+        typeof data === "string" ? JSON.parse(data) : data,
+        { status: res.status }
+      );
 
-      const cookies: string[] = [accessCookie.join("; ")];
+      response.cookies.set("sessionToken", sessionToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProd,
+        path: "/",
+      });
 
       if (refreshToken) {
-        const refreshCookie = [
-          `refreshToken=${refreshToken}`,
-          "Path=/",
-          "HttpOnly",
-          "SameSite=Strict",
-        ];
-        if (isProd) refreshCookie.push("Secure");
-        cookies.push(refreshCookie.join("; "));
+        response.cookies.set("refreshToken", refreshToken, {
+          httpOnly: true,
+          sameSite: "strict",
+          secure: isProd,
+          path: "/",
+        });
       }
 
-      return new Response(
-        typeof data === "string" ? data : JSON.stringify(data),
-        {
-          status: res.status,
-          headers: {
-            "Content-Type": contentType,
-            "Set-Cookie": cookies.join(", "),
-          },
-        }
-      );
+      return response;
     }
 
     return new Response(

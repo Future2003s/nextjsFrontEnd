@@ -3,18 +3,18 @@
  * Handles error logging, reporting, and user notification
  */
 
-import { toast } from 'sonner';
-import { 
-  BaseError, 
-  ErrorCode, 
-  ErrorSeverity, 
+import { toast } from "sonner";
+import {
+  BaseError,
+  ErrorCode,
+  ErrorSeverity,
   ErrorContext,
   AuthenticationError,
   ValidationError,
   NetworkError,
   ServerError,
-  BusinessLogicError
-} from './types';
+  BusinessLogicError,
+} from "./types";
 
 export interface ErrorHandlerConfig {
   enableLogging: boolean;
@@ -38,7 +38,7 @@ class ErrorHandler {
    */
   handle(error: Error | BaseError, context?: Partial<ErrorContext>): BaseError {
     const processedError = this.processError(error, context);
-    
+
     if (this.config.enableLogging) {
       this.logError(processedError);
     }
@@ -57,11 +57,32 @@ class ErrorHandler {
   /**
    * Process and normalize errors
    */
-  private processError(error: Error | BaseError, context?: Partial<ErrorContext>): BaseError {
+  private processError(
+    error: Error | BaseError,
+    context?: Partial<ErrorContext>
+  ): BaseError {
     if (error instanceof BaseError) {
-      // Merge additional context if provided
+      // Merge additional context without mutating readonly properties
       if (context) {
-        error.context = { ...error.context, ...context };
+        const mergedContext: ErrorContext = {
+          ...(error.context || {}),
+          ...(context || {}),
+          timestamp:
+            error.context?.timestamp ||
+            context?.timestamp ||
+            new Date().toISOString(),
+        };
+
+        return new BaseError({
+          code: error.code,
+          message: error.message,
+          severity: error.severity,
+          context: mergedContext,
+          retryable: error.retryable,
+          userMessage: error.userMessage,
+          suggestions: error.suggestions,
+          cause: error,
+        });
       }
       return error;
     }
@@ -73,22 +94,31 @@ class ErrorHandler {
   /**
    * Convert regular Error to BaseError
    */
-  private convertToBaseError(error: Error, context?: Partial<ErrorContext>): BaseError {
+  private convertToBaseError(
+    error: Error,
+    context?: Partial<ErrorContext>
+  ): BaseError {
     const errorContext: ErrorContext = {
       timestamp: new Date().toISOString(),
       ...context,
     };
 
     // Try to categorize the error based on message or type
-    if (error.message.includes('fetch') || error.message.includes('network')) {
+    if (error.message.includes("fetch") || error.message.includes("network")) {
       return new NetworkError(error.message, errorContext);
     }
 
-    if (error.message.includes('401') || error.message.includes('unauthorized')) {
+    if (
+      error.message.includes("401") ||
+      error.message.includes("unauthorized")
+    ) {
       return new AuthenticationError(error.message, errorContext);
     }
 
-    if (error.message.includes('validation') || error.message.includes('invalid')) {
+    if (
+      error.message.includes("validation") ||
+      error.message.includes("invalid")
+    ) {
       return new ValidationError(error.message, errorContext);
     }
 
@@ -103,21 +133,22 @@ class ErrorHandler {
     const logData = {
       ...error.toJSON(),
       environment: process.env.NODE_ENV,
-      userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
+      userAgent:
+        typeof window !== "undefined" ? window.navigator.userAgent : undefined,
     };
 
     switch (error.severity) {
       case ErrorSeverity.CRITICAL:
-        console.error('🚨 CRITICAL ERROR:', logData);
+        console.error("🚨 CRITICAL ERROR:", logData);
         break;
       case ErrorSeverity.HIGH:
-        console.error('❌ HIGH SEVERITY ERROR:', logData);
+        console.error("❌ HIGH SEVERITY ERROR:", logData);
         break;
       case ErrorSeverity.MEDIUM:
-        console.warn('⚠️ MEDIUM SEVERITY ERROR:', logData);
+        console.warn("⚠️ MEDIUM SEVERITY ERROR:", logData);
         break;
       case ErrorSeverity.LOW:
-        console.info('ℹ️ LOW SEVERITY ERROR:', logData);
+        console.info("ℹ️ LOW SEVERITY ERROR:", logData);
         break;
     }
   }
@@ -130,14 +161,14 @@ class ErrorHandler {
 
     try {
       this.errorQueue.push(error);
-      
+
       if (!this.isReporting) {
         this.isReporting = true;
         await this.flushErrorQueue();
         this.isReporting = false;
       }
     } catch (reportingError) {
-      console.error('Failed to report error:', reportingError);
+      console.error("Failed to report error:", reportingError);
     }
   }
 
@@ -153,16 +184,16 @@ class ErrorHandler {
     if (this.config.reportingEndpoint) {
       try {
         await fetch(this.config.reportingEndpoint, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ errors: errors.map(e => e.toJSON()) }),
+          body: JSON.stringify({ errors: errors.map((e) => e.toJSON()) }),
         });
       } catch (error) {
         // Re-queue errors if reporting fails
         this.errorQueue.unshift(...errors);
-        console.error('Failed to flush error queue:', error);
+        console.error("Failed to flush error queue:", error);
       }
     }
   }
@@ -171,7 +202,10 @@ class ErrorHandler {
    * Determine if error should be reported
    */
   private shouldReport(error: BaseError): boolean {
-    return error.severity === ErrorSeverity.HIGH || error.severity === ErrorSeverity.CRITICAL;
+    return (
+      error.severity === ErrorSeverity.HIGH ||
+      error.severity === ErrorSeverity.CRITICAL
+    );
   }
 
   /**
@@ -182,19 +216,22 @@ class ErrorHandler {
     if (error.severity === ErrorSeverity.LOW) return;
 
     const message = error.userMessage;
-    const suggestions = error.suggestions.length > 0 
-      ? `\n\nGợi ý: ${error.suggestions.join(', ')}` 
-      : '';
+    const suggestions =
+      error.suggestions.length > 0
+        ? `\n\nGợi ý: ${error.suggestions.join(", ")}`
+        : "";
 
     switch (error.severity) {
       case ErrorSeverity.CRITICAL:
       case ErrorSeverity.HIGH:
         toast.error(message + suggestions, {
           duration: 8000,
-          action: error.retryable ? {
-            label: 'Thử lại',
-            onClick: () => window.location.reload(),
-          } : undefined,
+          action: error.retryable
+            ? {
+                label: "Thử lại",
+                onClick: () => window.location.reload(),
+              }
+            : undefined,
         });
         break;
       case ErrorSeverity.MEDIUM:
@@ -208,7 +245,10 @@ class ErrorHandler {
   /**
    * Create error from HTTP response
    */
-  createFromResponse(response: Response, context?: Partial<ErrorContext>): BaseError {
+  createFromResponse(
+    response: Response,
+    context?: Partial<ErrorContext>
+  ): BaseError {
     const errorContext: ErrorContext = {
       timestamp: new Date().toISOString(),
       url: response.url,
@@ -217,9 +257,15 @@ class ErrorHandler {
 
     switch (response.status) {
       case 400:
-        return new ValidationError(`Bad Request: ${response.statusText}`, errorContext);
+        return new ValidationError(
+          `Bad Request: ${response.statusText}`,
+          errorContext
+        );
       case 401:
-        return new AuthenticationError(`Unauthorized: ${response.statusText}`, errorContext);
+        return new AuthenticationError(
+          `Unauthorized: ${response.statusText}`,
+          errorContext
+        );
       case 403:
         return new BaseError({
           code: ErrorCode.FORBIDDEN,
@@ -237,7 +283,7 @@ class ErrorHandler {
       case 429:
         return new BaseError({
           code: ErrorCode.RATE_LIMIT_EXCEEDED,
-          message: 'Too Many Requests',
+          message: "Too Many Requests",
           severity: ErrorSeverity.MEDIUM,
           context: errorContext,
           retryable: true,
@@ -246,9 +292,15 @@ class ErrorHandler {
       case 502:
       case 503:
       case 504:
-        return new ServerError(`Server Error: ${response.statusText}`, errorContext);
+        return new ServerError(
+          `Server Error: ${response.statusText}`,
+          errorContext
+        );
       default:
-        return new ServerError(`HTTP Error ${response.status}: ${response.statusText}`, errorContext);
+        return new ServerError(
+          `HTTP Error ${response.status}: ${response.statusText}`,
+          errorContext
+        );
     }
   }
 }
@@ -256,7 +308,7 @@ class ErrorHandler {
 // Default configuration
 const defaultConfig: ErrorHandlerConfig = {
   enableLogging: true,
-  enableReporting: process.env.NODE_ENV === 'production',
+  enableReporting: process.env.NODE_ENV === "production",
   enableUserNotification: true,
   logLevel: ErrorSeverity.LOW,
   reportingEndpoint: process.env.NEXT_PUBLIC_ERROR_REPORTING_ENDPOINT,
@@ -266,8 +318,12 @@ const defaultConfig: ErrorHandlerConfig = {
 export const errorHandler = new ErrorHandler(defaultConfig);
 
 // Convenience functions
-export const handleError = (error: Error | BaseError, context?: Partial<ErrorContext>) => 
-  errorHandler.handle(error, context);
+export const handleError = (
+  error: Error | BaseError,
+  context?: Partial<ErrorContext>
+) => errorHandler.handle(error, context);
 
-export const createErrorFromResponse = (response: Response, context?: Partial<ErrorContext>) =>
-  errorHandler.createFromResponse(response, context);
+export const createErrorFromResponse = (
+  response: Response,
+  context?: Partial<ErrorContext>
+) => errorHandler.createFromResponse(response, context);

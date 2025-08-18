@@ -1,17 +1,16 @@
-import { NextRequest } from "next/server";
+import { cookies } from "next/headers";
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_END_POINT}/auth/refresh-token`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          refreshToken: request.cookies.get("refreshToken")?.value || "",
-        }),
-      }
-    );
+    const cookieStore = await cookies();
+    const refreshToken = cookieStore.get("refreshToken")?.value || "";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_END_POINT || "http://localhost:8081/api/v1";
+    const res = await fetch(`${baseUrl}/auth/refresh-token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
     const contentType = res.headers.get("content-type") || "application/json";
     let data;
     try {
@@ -25,6 +24,38 @@ export async function POST(request: NextRequest) {
       console.error("JSON parse error:", error);
       data = null;
     }
+    // If backend returned new tokens, set them as HttpOnly cookies
+    if (res.ok && data?.success && data?.data?.token) {
+      const isProd = process.env.NODE_ENV === "production";
+      const accessCookie = [
+        `sessionToken=${data.data.token}`,
+        "Path=/",
+        "HttpOnly",
+        "SameSite=Lax",
+      ];
+      if (isProd) accessCookie.push("Secure");
+
+      const cookiesToSet: string[] = [accessCookie.join("; ")];
+      if (data.data.refreshToken) {
+        const refreshCookie = [
+          `refreshToken=${data.data.refreshToken}`,
+          "Path=/",
+          "HttpOnly",
+          "SameSite=Strict",
+        ];
+        if (isProd) refreshCookie.push("Secure");
+        cookiesToSet.push(refreshCookie.join("; "));
+      }
+
+      return new Response(JSON.stringify(data), {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Set-Cookie": cookiesToSet.join(", "),
+        },
+      });
+    }
+
     return new Response(
       typeof data === "string" ? data : JSON.stringify(data),
       {

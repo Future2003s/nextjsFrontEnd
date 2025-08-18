@@ -3,13 +3,18 @@
  * Centralized route handling with security, validation, and error handling
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { securityMiddleware } from '@/lib/security/security-middleware';
-import { handleError } from '@/lib/errors/error-handler';
-import { validator } from '@/lib/validation/validator';
-import { authService } from '@/lib/auth/auth-service';
-import { BaseError, ErrorCode, ErrorSeverity, ValidationError } from '@/lib/errors/types';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { securityMiddleware } from "@/lib/security/security-middleware";
+import { handleError } from "@/lib/errors/error-handler";
+import { validator } from "@/lib/validation/validator";
+import { authService } from "@/lib/auth/auth-service";
+import {
+  BaseError,
+  ErrorCode,
+  ErrorSeverity,
+  ValidationError,
+} from "@/lib/errors/types";
+import { z } from "zod";
 
 export interface RouteConfig {
   requireAuth?: boolean;
@@ -35,7 +40,11 @@ export interface RouteContext {
 }
 
 export interface RouteHandler {
-  (request: NextRequest, context: RouteContext, params?: any): Promise<NextResponse>;
+  (
+    request: NextRequest,
+    context: RouteContext,
+    params?: any
+  ): Promise<NextResponse>;
 }
 
 class ApiRouteHandler {
@@ -43,10 +52,13 @@ class ApiRouteHandler {
    * Create a protected API route with enterprise features
    */
   createRoute(handler: RouteHandler, config: RouteConfig = {}) {
-    return async (request: NextRequest, params?: any): Promise<NextResponse> => {
+    return async (
+      request: NextRequest,
+      params?: any
+    ): Promise<NextResponse> => {
       const startTime = Date.now();
       const requestId = this.generateRequestId();
-      
+
       try {
         // Security middleware
         const securityResponse = await securityMiddleware.handle(request);
@@ -59,7 +71,7 @@ class ApiRouteHandler {
           requestId,
           startTime,
           ip: this.getClientIp(request),
-          userAgent: request.headers.get('user-agent') || 'unknown',
+          userAgent: request.headers.get("user-agent") || "unknown",
         };
 
         // Authentication check
@@ -69,7 +81,7 @@ class ApiRouteHandler {
             return this.createErrorResponse(
               new BaseError({
                 code: ErrorCode.UNAUTHORIZED,
-                message: 'Authentication required',
+                message: "Authentication required",
                 severity: ErrorSeverity.MEDIUM,
               }),
               401
@@ -80,11 +92,14 @@ class ApiRouteHandler {
 
         // Role-based authorization
         if (config.requiredRoles && config.requiredRoles.length > 0) {
-          if (!context.user || !this.hasRequiredRole(context.user, config.requiredRoles)) {
+          if (
+            !context.user ||
+            !this.hasRequiredRole(context.user, config.requiredRoles)
+          ) {
             return this.createErrorResponse(
               new BaseError({
                 code: ErrorCode.FORBIDDEN,
-                message: 'Insufficient permissions',
+                message: "Insufficient permissions",
                 severity: ErrorSeverity.MEDIUM,
               }),
               403
@@ -93,8 +108,14 @@ class ApiRouteHandler {
         }
 
         // Input validation
-        if (config.validateInput && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
-          const validationResult = await this.validateInput(request, config.validateInput);
+        if (
+          config.validateInput &&
+          ["POST", "PUT", "PATCH"].includes(request.method)
+        ) {
+          const validationResult = await this.validateInput(
+            request,
+            config.validateInput
+          );
           if (!validationResult.success) {
             return this.createErrorResponse(validationResult.error!, 400);
           }
@@ -112,21 +133,23 @@ class ApiRouteHandler {
         }
 
         return response;
-
       } catch (error) {
         const processedError = handleError(error as Error, {
           requestId,
           url: request.url,
           method: request.method,
           ip: this.getClientIp(request),
-          userAgent: request.headers.get('user-agent') || undefined,
+          userAgent: request.headers.get("user-agent") || undefined,
           additionalData: {
             duration: Date.now() - startTime,
             config,
           },
         });
 
-        return this.createErrorResponse(processedError, this.getStatusFromError(processedError));
+        return this.createErrorResponse(
+          processedError,
+          this.getStatusFromError(processedError)
+        );
       }
     };
   }
@@ -134,7 +157,11 @@ class ApiRouteHandler {
   /**
    * Create standardized success response
    */
-  createSuccessResponse<T>(data: T, status: number = 200, meta?: any): NextResponse {
+  createSuccessResponse<T>(
+    data: T,
+    status: number = 200,
+    meta?: any
+  ): NextResponse {
     const response = {
       success: true,
       data,
@@ -164,11 +191,11 @@ class ApiRouteHandler {
     };
 
     // Don't expose sensitive error details in production
-    if (process.env.NODE_ENV === 'development') {
-      response.meta = {
-        ...response.meta,
-        stack: error.stack,
-        context: error.context,
+    if (process.env.NODE_ENV === "development") {
+      (response as any).meta = {
+        ...(response as any).meta,
+        stack: (error as any).stack,
+        context: (error as any).context,
       };
     }
 
@@ -184,15 +211,15 @@ class ApiRouteHandler {
     error?: BaseError;
   }> {
     try {
-      const authHeader = request.headers.get('authorization');
-      const token = authHeader?.replace('Bearer ', '');
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader?.replace("Bearer ", "");
 
       if (!token) {
         return {
           success: false,
           error: new BaseError({
             code: ErrorCode.UNAUTHORIZED,
-            message: 'No authentication token provided',
+            message: "No authentication token provided",
             severity: ErrorSeverity.MEDIUM,
           }),
         };
@@ -200,13 +227,13 @@ class ApiRouteHandler {
 
       // Validate token and get user
       const user = await authService.getCurrentUser();
-      
+
       if (!user) {
         return {
           success: false,
           error: new BaseError({
             code: ErrorCode.UNAUTHORIZED,
-            message: 'Invalid or expired token',
+            message: "Invalid or expired token",
             severity: ErrorSeverity.MEDIUM,
           }),
         };
@@ -218,7 +245,7 @@ class ApiRouteHandler {
         success: false,
         error: new BaseError({
           code: ErrorCode.UNAUTHORIZED,
-          message: 'Authentication failed',
+          message: "Authentication failed",
           severity: ErrorSeverity.MEDIUM,
         }),
       };
@@ -243,7 +270,7 @@ class ApiRouteHandler {
     try {
       const body = await request.json();
 
-      if (typeof schema === 'function') {
+      if (typeof schema === "function") {
         await schema(body);
       } else {
         const result = validator.validateWithSchema(body, schema);
@@ -251,9 +278,9 @@ class ApiRouteHandler {
           return {
             success: false,
             error: new ValidationError(
-              'Input validation failed',
+              "Input validation failed",
               undefined,
-              result.errors.map(e => e.message)
+              result.errors.map((e) => e.message)
             ),
           };
         }
@@ -263,7 +290,7 @@ class ApiRouteHandler {
     } catch (error) {
       return {
         success: false,
-        error: new ValidationError('Invalid request body'),
+        error: new ValidationError("Invalid request body"),
       };
     }
   }
@@ -271,12 +298,18 @@ class ApiRouteHandler {
   /**
    * Add standard response headers
    */
-  private addResponseHeaders(response: NextResponse, context: RouteContext): void {
-    response.headers.set('X-Request-ID', context.requestId);
-    response.headers.set('X-Response-Time', `${Date.now() - context.startTime}ms`);
-    response.headers.set('X-Content-Type-Options', 'nosniff');
-    response.headers.set('X-Frame-Options', 'DENY');
-    response.headers.set('X-XSS-Protection', '1; mode=block');
+  private addResponseHeaders(
+    response: NextResponse,
+    context: RouteContext
+  ): void {
+    response.headers.set("X-Request-ID", context.requestId);
+    response.headers.set(
+      "X-Response-Time",
+      `${Date.now() - context.startTime}ms`
+    );
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("X-XSS-Protection", "1; mode=block");
   }
 
   /**
@@ -302,11 +335,11 @@ class ApiRouteHandler {
 
       // Send to audit service (implement based on your audit requirements)
       // For now, just log to console in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 Audit Log:', auditData);
+      if (process.env.NODE_ENV === "development") {
+        console.log("🔍 Audit Log:", auditData);
       }
     } catch (error) {
-      console.warn('Audit logging failed:', error);
+      console.warn("Audit logging failed:", error);
     }
   }
 
@@ -345,10 +378,11 @@ class ApiRouteHandler {
    * Get client IP address
    */
   private getClientIp(request: NextRequest): string {
-    return request.headers.get('x-forwarded-for')?.split(',')[0] ||
-           request.headers.get('x-real-ip') ||
-           request.ip ||
-           'unknown';
+    return (
+      request.headers.get("x-forwarded-for")?.split(",")[0] ||
+      request.headers.get("x-real-ip") ||
+      "unknown"
+    );
   }
 }
 
@@ -356,11 +390,22 @@ class ApiRouteHandler {
 export const apiRouteHandler = new ApiRouteHandler();
 
 // Convenience functions for common route patterns
-export const createAuthenticatedRoute = (handler: RouteHandler, config: Omit<RouteConfig, 'requireAuth'> = {}) =>
-  apiRouteHandler.createRoute(handler, { ...config, requireAuth: true });
+export const createAuthenticatedRoute = (
+  handler: RouteHandler,
+  config: Omit<RouteConfig, "requireAuth"> = {}
+) => apiRouteHandler.createRoute(handler, { ...config, requireAuth: true });
 
-export const createAdminRoute = (handler: RouteHandler, config: Omit<RouteConfig, 'requireAuth' | 'requiredRoles'> = {}) =>
-  apiRouteHandler.createRoute(handler, { ...config, requireAuth: true, requiredRoles: ['admin'] });
+export const createAdminRoute = (
+  handler: RouteHandler,
+  config: Omit<RouteConfig, "requireAuth" | "requiredRoles"> = {}
+) =>
+  apiRouteHandler.createRoute(handler, {
+    ...config,
+    requireAuth: true,
+    requiredRoles: ["admin"],
+  });
 
-export const createPublicRoute = (handler: RouteHandler, config: RouteConfig = {}) =>
-  apiRouteHandler.createRoute(handler, config);
+export const createPublicRoute = (
+  handler: RouteHandler,
+  config: RouteConfig = {}
+) => apiRouteHandler.createRoute(handler, config);

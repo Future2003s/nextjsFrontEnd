@@ -3,16 +3,19 @@
  * Centralized HTTP client with error handling, retries, and interceptors
  */
 
-import { envConfig } from '@/config';
-import { 
-  BaseError, 
-  NetworkError, 
-  ServerError, 
+import { envConfig } from "@/config";
+import {
+  BaseError,
+  NetworkError,
+  ServerError,
   AuthenticationError,
   ErrorCode,
-  ErrorContext 
-} from '@/lib/errors/types';
-import { handleError, createErrorFromResponse } from '@/lib/errors/error-handler';
+  ErrorContext,
+} from "@/lib/errors/types";
+import {
+  handleError,
+  createErrorFromResponse,
+} from "@/lib/errors/error-handler";
 
 export interface RequestConfig extends RequestInit {
   baseUrl?: string;
@@ -86,7 +89,7 @@ class HttpClient {
       }
 
       const response = await this.executeRequest(url, finalConfig, requestId);
-      
+
       // Apply response interceptors
       let finalResponse = response;
       for (const interceptor of this.responseInterceptors) {
@@ -94,23 +97,34 @@ class HttpClient {
       }
 
       const data = await this.parseResponse<T>(finalResponse);
-      
-      this.logRequest(url, finalConfig, finalResponse, Date.now() - startTime, requestId);
-      
+
+      this.logRequest(
+        url,
+        finalConfig,
+        finalResponse,
+        Date.now() - startTime,
+        requestId
+      );
+
       return data;
     } catch (error) {
+      // Ensure we have a safe config reference in the catch scope
+      const safeConfig = (
+        typeof config === "object" ? config : {}
+      ) as RequestConfig;
+
       const context: ErrorContext = {
         requestId,
-        url: this.buildFullUrl(url, finalConfig),
-        method: finalConfig.method || 'GET',
+        url: this.buildFullUrl(url, safeConfig),
+        method: safeConfig.method || "GET",
         timestamp: new Date().toISOString(),
         additionalData: {
           duration: Date.now() - startTime,
-          config: this.sanitizeConfig(finalConfig),
+          config: this.sanitizeConfig(safeConfig),
         },
       };
 
-      if (!finalConfig.skipErrorHandling) {
+      if (!safeConfig.skipErrorHandling) {
         const processedError = handleError(error as Error, context);
         throw processedError;
       }
@@ -143,8 +157,8 @@ class HttpClient {
           ...config,
           signal: controller.signal,
           headers: {
-            'Content-Type': 'application/json',
-            'X-Request-ID': requestId,
+            "Content-Type": "application/json",
+            "X-Request-ID": requestId,
             ...config.headers,
           },
         });
@@ -155,7 +169,7 @@ class HttpClient {
           const error = createErrorFromResponse(response, {
             requestId,
             url: fullUrl,
-            method: config.method || 'GET',
+            method: config.method || "GET",
           });
 
           // Don't retry client errors (4xx)
@@ -176,11 +190,11 @@ class HttpClient {
       } catch (error) {
         lastError = error as Error;
 
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          throw new NetworkError('Request timeout', {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          throw new NetworkError("Request timeout", {
             requestId,
             url: fullUrl,
-            method: config.method || 'GET',
+            method: config.method || "GET",
             timestamp: new Date().toISOString(),
           });
         }
@@ -201,9 +215,9 @@ class HttpClient {
    * Parse response data
    */
   private async parseResponse<T>(response: Response): Promise<ApiResponse<T>> {
-    const contentType = response.headers.get('content-type') || '';
+    const contentType = response.headers.get("content-type") || "";
 
-    if (contentType.includes('application/json')) {
+    if (contentType.includes("application/json")) {
       const text = await response.text();
       return text ? JSON.parse(text) : { success: true };
     }
@@ -217,7 +231,9 @@ class HttpClient {
    */
   private buildFullUrl(url: string, config: RequestConfig): string {
     const baseUrl = config.baseUrl || this.baseUrl;
-    return url.startsWith('http') ? url : `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`;
+    return url.startsWith("http")
+      ? url
+      : `${baseUrl}${url.startsWith("/") ? url : `/${url}`}`;
   }
 
   /**
@@ -229,16 +245,18 @@ class HttpClient {
     }
 
     // Network errors are generally retryable
-    return error.message.includes('fetch') || 
-           error.message.includes('network') ||
-           error.message.includes('timeout');
+    return (
+      error.message.includes("fetch") ||
+      error.message.includes("network") ||
+      error.message.includes("timeout")
+    );
   }
 
   /**
    * Delay utility for retries
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -258,8 +276,8 @@ class HttpClient {
     duration: number,
     requestId: string
   ): void {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`🌐 ${config.method || 'GET'} ${url}`, {
+    if (process.env.NODE_ENV === "development") {
+      console.log(`🌐 ${config.method || "GET"} ${url}`, {
         requestId,
         status: response.status,
         duration: `${duration}ms`,
@@ -275,20 +293,24 @@ class HttpClient {
     const { headers, ...rest } = config;
     return {
       ...rest,
-      headers: headers ? this.sanitizeHeaders(headers as Record<string, string>) : undefined,
+      headers: headers
+        ? this.sanitizeHeaders(headers as Record<string, string>)
+        : undefined,
     };
   }
 
   /**
    * Sanitize headers (remove sensitive information)
    */
-  private sanitizeHeaders(headers: Record<string, string>): Record<string, string> {
+  private sanitizeHeaders(
+    headers: Record<string, string>
+  ): Record<string, string> {
     const sanitized = { ...headers };
-    const sensitiveKeys = ['authorization', 'cookie', 'x-api-key'];
-    
-    sensitiveKeys.forEach(key => {
+    const sensitiveKeys = ["authorization", "cookie", "x-api-key"];
+
+    sensitiveKeys.forEach((key) => {
       if (sanitized[key]) {
-        sanitized[key] = '[REDACTED]';
+        sanitized[key] = "[REDACTED]";
       }
     });
 
@@ -297,35 +319,50 @@ class HttpClient {
 
   // Convenience methods
   get<T = any>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(url, { ...config, method: 'GET' });
+    return this.request<T>(url, { ...config, method: "GET" });
   }
 
-  post<T = any>(url: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+  post<T = any>(
+    url: string,
+    data?: any,
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
     return this.request<T>(url, {
       ...config,
-      method: 'POST',
+      method: "POST",
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  put<T = any>(url: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+  put<T = any>(
+    url: string,
+    data?: any,
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
     return this.request<T>(url, {
       ...config,
-      method: 'PUT',
+      method: "PUT",
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  patch<T = any>(url: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+  patch<T = any>(
+    url: string,
+    data?: any,
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
     return this.request<T>(url, {
       ...config,
-      method: 'PATCH',
+      method: "PATCH",
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  delete<T = any>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(url, { ...config, method: 'DELETE' });
+  delete<T = any>(
+    url: string,
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(url, { ...config, method: "DELETE" });
   }
 }
 

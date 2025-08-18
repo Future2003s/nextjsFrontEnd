@@ -23,11 +23,6 @@ export default function OrdersPage() {
         onUpdateOrder={updateOrder}
         onGoToPage={goToPage}
         onChangePageSize={changePageSize}
-        basePathPrefix={`/${
-          (typeof window !== "undefined" &&
-            window.location.pathname.split("/")[1]) ||
-          "vi"
-        }/admin`}
       />
     </div>
   );

@@ -2,12 +2,12 @@ import { notFound } from "next/navigation";
 import { isValidLocale } from "@/i18n/config";
 import ProductsPage from "../products/page";
 
-export default function LocaleShopPage({
+export default async function LocaleShopPage({
   params,
 }: {
-  params: { locale?: string };
+  params: Promise<{ locale?: string }>;
 }) {
-  const { locale } = params;
+  const { locale } = await params;
   if (!locale || !isValidLocale(locale)) {
     notFound();
   }

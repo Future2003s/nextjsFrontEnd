@@ -3,10 +3,10 @@
  * Comprehensive security layer with CSRF protection, rate limiting, and input sanitization
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { validator } from '@/lib/validation/validator';
-import { BaseError, ErrorCode, ErrorSeverity } from '@/lib/errors/types';
-import { handleError } from '@/lib/errors/error-handler';
+import { NextRequest, NextResponse } from "next/server";
+import { validator } from "@/lib/validation/validator";
+import { BaseError, ErrorCode, ErrorSeverity } from "@/lib/errors/types";
+import { handleError } from "@/lib/errors/error-handler";
 
 export interface SecurityConfig {
   enableCsrf: boolean;
@@ -32,7 +32,7 @@ class SecurityMiddleware {
 
   constructor(config: SecurityConfig) {
     this.config = config;
-    
+
     // Clean up rate limit store periodically
     setInterval(() => this.cleanupRateLimit(), 60000); // Every minute
   }
@@ -60,7 +60,9 @@ class SecurityMiddleware {
 
       // Input sanitization and security checks
       if (this.config.enableInputSanitization) {
-        const sanitizationResponse = await this.handleInputSanitization(request);
+        const sanitizationResponse = await this.handleInputSanitization(
+          request
+        );
         if (sanitizationResponse) return sanitizationResponse;
       }
 
@@ -70,13 +72,13 @@ class SecurityMiddleware {
         url: request.url,
         method: request.method,
         ip: this.getClientIp(request),
-        userAgent: request.headers.get('user-agent') || undefined,
+        userAgent: request.headers.get("user-agent") || undefined,
       });
 
       return NextResponse.json(
         {
           success: false,
-          error: 'Security check failed',
+          error: "Security check failed",
           message: processedError.userMessage,
         },
         { status: 403 }
@@ -88,35 +90,36 @@ class SecurityMiddleware {
    * Handle CORS
    */
   private handleCors(request: NextRequest): NextResponse | null {
-    const origin = request.headers.get('origin');
+    const origin = request.headers.get("origin");
     const method = request.method;
 
     // Check if method is allowed
     if (!this.config.allowedMethods.includes(method)) {
       return NextResponse.json(
-        { success: false, error: 'Method not allowed' },
+        { success: false, error: "Method not allowed" },
         { status: 405 }
       );
     }
 
     // Handle preflight requests
-    if (method === 'OPTIONS') {
+    if (method === "OPTIONS") {
       return new NextResponse(null, {
         status: 200,
         headers: {
-          'Access-Control-Allow-Origin': this.getAllowedOrigin(origin),
-          'Access-Control-Allow-Methods': this.config.allowedMethods.join(', '),
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
-          'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Max-Age': '86400',
+          "Access-Control-Allow-Origin": this.getAllowedOrigin(origin),
+          "Access-Control-Allow-Methods": this.config.allowedMethods.join(", "),
+          "Access-Control-Allow-Headers":
+            "Content-Type, Authorization, X-CSRF-Token",
+          "Access-Control-Allow-Credentials": "true",
+          "Access-Control-Max-Age": "86400",
         },
       });
     }
 
     // Check origin for non-GET requests
-    if (method !== 'GET' && origin && !this.isOriginAllowed(origin)) {
+    if (method !== "GET" && origin && !this.isOriginAllowed(origin)) {
       return NextResponse.json(
-        { success: false, error: 'Origin not allowed' },
+        { success: false, error: "Origin not allowed" },
         { status: 403 }
       );
     }
@@ -146,20 +149,20 @@ class SecurityMiddleware {
 
     if (entry.count >= this.config.rateLimitMax) {
       const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
-      
+
       return NextResponse.json(
         {
           success: false,
-          error: 'Rate limit exceeded',
-          message: 'Too many requests. Please try again later.',
+          error: "Rate limit exceeded",
+          message: "Too many requests. Please try again later.",
         },
         {
           status: 429,
           headers: {
-            'Retry-After': retryAfter.toString(),
-            'X-RateLimit-Limit': this.config.rateLimitMax.toString(),
-            'X-RateLimit-Remaining': '0',
-            'X-RateLimit-Reset': entry.resetTime.toString(),
+            "Retry-After": retryAfter.toString(),
+            "X-RateLimit-Limit": this.config.rateLimitMax.toString(),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": entry.resetTime.toString(),
           },
         }
       );
@@ -179,16 +182,17 @@ class SecurityMiddleware {
     const method = request.method;
 
     // CSRF protection only for state-changing methods
-    if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    if (["GET", "HEAD", "OPTIONS"].includes(method)) {
       return null;
     }
 
-    const csrfToken = request.headers.get('X-CSRF-Token') || 
-                     request.headers.get('X-Requested-With');
+    const csrfToken =
+      request.headers.get("X-CSRF-Token") ||
+      request.headers.get("X-Requested-With");
 
     if (!csrfToken) {
       return NextResponse.json(
-        { success: false, error: 'CSRF token missing' },
+        { success: false, error: "CSRF token missing" },
         { status: 403 }
       );
     }
@@ -196,7 +200,7 @@ class SecurityMiddleware {
     // Validate CSRF token (simplified - in production, use proper CSRF token validation)
     if (!this.validateCsrfToken(csrfToken)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid CSRF token' },
+        { success: false, error: "Invalid CSRF token" },
         { status: 403 }
       );
     }
@@ -207,27 +211,29 @@ class SecurityMiddleware {
   /**
    * Handle input sanitization and security checks
    */
-  private async handleInputSanitization(request: NextRequest): Promise<NextResponse | null> {
+  private async handleInputSanitization(
+    request: NextRequest
+  ): Promise<NextResponse | null> {
     try {
       // Check URL for suspicious patterns
       if (this.hasSuspiciousUrl(request.url)) {
         return NextResponse.json(
-          { success: false, error: 'Suspicious request detected' },
+          { success: false, error: "Suspicious request detected" },
           { status: 400 }
         );
       }
 
       // Check request body for security issues
-      if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
+      if (request.body && ["POST", "PUT", "PATCH"].includes(request.method)) {
         const body = await this.getRequestBody(request);
-        
+
         if (body) {
           const securityIssues = this.checkBodySecurity(body);
           if (securityIssues.length > 0) {
             return NextResponse.json(
               {
                 success: false,
-                error: 'Security violation detected',
+                error: "Security violation detected",
                 details: securityIssues,
               },
               { status: 400 }
@@ -240,7 +246,7 @@ class SecurityMiddleware {
     } catch (error) {
       // If we can't parse the body, it might be malformed
       return NextResponse.json(
-        { success: false, error: 'Malformed request' },
+        { success: false, error: "Malformed request" },
         { status: 400 }
       );
     }
@@ -252,14 +258,14 @@ class SecurityMiddleware {
   generateCsrfToken(): string {
     const token = this.generateRandomToken();
     this.csrfTokens.add(token);
-    
+
     // Clean up old tokens (keep only last 1000)
     if (this.csrfTokens.size > 1000) {
       const tokensArray = Array.from(this.csrfTokens);
       this.csrfTokens.clear();
-      tokensArray.slice(-500).forEach(t => this.csrfTokens.add(t));
+      tokensArray.slice(-500).forEach((t) => this.csrfTokens.add(t));
     }
-    
+
     return token;
   }
 
@@ -274,9 +280,9 @@ class SecurityMiddleware {
    * Check if origin is allowed
    */
   private isOriginAllowed(origin: string): boolean {
-    return this.config.trustedOrigins.some(trusted => {
-      if (trusted === '*') return true;
-      if (trusted.startsWith('*.')) {
+    return this.config.trustedOrigins.some((trusted) => {
+      if (trusted === "*") return true;
+      if (trusted.startsWith("*.")) {
         const domain = trusted.slice(2);
         return origin.endsWith(domain);
       }
@@ -288,8 +294,10 @@ class SecurityMiddleware {
    * Get allowed origin for CORS header
    */
   private getAllowedOrigin(origin: string | null): string {
-    if (!origin) return this.config.trustedOrigins[0] || '*';
-    return this.isOriginAllowed(origin) ? origin : this.config.trustedOrigins[0] || '*';
+    if (!origin) return this.config.trustedOrigins[0] || "*";
+    return this.isOriginAllowed(origin)
+      ? origin
+      : this.config.trustedOrigins[0] || "*";
   }
 
   /**
@@ -298,7 +306,7 @@ class SecurityMiddleware {
   private getClientIdentifier(request: NextRequest): string {
     // Use IP + User-Agent for identification
     const ip = this.getClientIp(request);
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const userAgent = request.headers.get("user-agent") || "unknown";
     return `${ip}:${userAgent.slice(0, 50)}`;
   }
 
@@ -306,10 +314,11 @@ class SecurityMiddleware {
    * Get client IP address
    */
   private getClientIp(request: NextRequest): string {
-    return request.headers.get('x-forwarded-for')?.split(',')[0] ||
-           request.headers.get('x-real-ip') ||
-           request.ip ||
-           'unknown';
+    return (
+      request.headers.get("x-forwarded-for")?.split(",")[0] ||
+      request.headers.get("x-real-ip") ||
+      "unknown"
+    );
   }
 
   /**
@@ -317,16 +326,16 @@ class SecurityMiddleware {
    */
   private hasSuspiciousUrl(url: string): boolean {
     const suspiciousPatterns = [
-      /\.\./,  // Path traversal
-      /%2e%2e/i,  // Encoded path traversal
-      /%00/,  // Null byte
-      /script:/i,  // Script protocol
-      /javascript:/i,  // JavaScript protocol
-      /data:/i,  // Data protocol
-      /vbscript:/i,  // VBScript protocol
+      /\.\./, // Path traversal
+      /%2e%2e/i, // Encoded path traversal
+      /%00/, // Null byte
+      /script:/i, // Script protocol
+      /javascript:/i, // JavaScript protocol
+      /data:/i, // Data protocol
+      /vbscript:/i, // VBScript protocol
     ];
 
-    return suspiciousPatterns.some(pattern => pattern.test(url));
+    return suspiciousPatterns.some((pattern) => pattern.test(url));
   }
 
   /**
@@ -334,18 +343,18 @@ class SecurityMiddleware {
    */
   private async getRequestBody(request: NextRequest): Promise<any> {
     try {
-      const contentType = request.headers.get('content-type') || '';
-      
-      if (contentType.includes('application/json')) {
+      const contentType = request.headers.get("content-type") || "";
+
+      if (contentType.includes("application/json")) {
         return await request.json();
-      } else if (contentType.includes('application/x-www-form-urlencoded')) {
+      } else if (contentType.includes("application/x-www-form-urlencoded")) {
         const formData = await request.formData();
         return Object.fromEntries(formData.entries());
       }
-      
+
       return null;
     } catch (error) {
-      throw new Error('Invalid request body');
+      throw new Error("Invalid request body");
     }
   }
 
@@ -355,16 +364,19 @@ class SecurityMiddleware {
   private checkBodySecurity(body: any): string[] {
     const issues: string[] = [];
 
-    const checkValue = (value: any, path: string = ''): void => {
-      if (typeof value === 'string') {
-        if (this.config.enableSqlInjectionProtection && validator.hasSqlInjection(value)) {
-          issues.push(`SQL injection detected in ${path || 'request'}`);
+    const checkValue = (value: any, path: string = ""): void => {
+      if (typeof value === "string") {
+        if (
+          this.config.enableSqlInjectionProtection &&
+          validator.hasSqlInjection(value)
+        ) {
+          issues.push(`SQL injection detected in ${path || "request"}`);
         }
-        
+
         if (this.config.enableXssProtection && validator.hasXss(value)) {
-          issues.push(`XSS attempt detected in ${path || 'request'}`);
+          issues.push(`XSS attempt detected in ${path || "request"}`);
         }
-      } else if (typeof value === 'object' && value !== null) {
+      } else if (typeof value === "object" && value !== null) {
         Object.entries(value).forEach(([key, val]) => {
           checkValue(val, path ? `${path}.${key}` : key);
         });
@@ -380,8 +392,8 @@ class SecurityMiddleware {
    */
   private generateRandomToken(): string {
     return Array.from(crypto.getRandomValues(new Uint8Array(32)))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   /**
@@ -407,11 +419,11 @@ const defaultSecurityConfig: SecurityConfig = {
   rateLimitWindow: 15 * 60 * 1000, // 15 minutes
   rateLimitMax: 100, // 100 requests per window
   trustedOrigins: [
-    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    'http://localhost:3000',
-    'http://localhost:3001',
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    "http://localhost:3000",
+    "http://localhost:3001",
   ],
-  allowedMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 };
 
 // Export singleton instance

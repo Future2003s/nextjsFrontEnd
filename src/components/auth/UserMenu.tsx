@@ -14,6 +14,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Settings, LogOut, ShoppingCart, Package } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  getUserFullName,
+  getUserAvatarUrl,
+  UserProfile,
+} from "@/apiRequests/users";
 
 export function UserMenu() {
   const { user, isAuthenticated, logout, isLoading } = useAuth();
@@ -46,14 +51,15 @@ export function UserMenu() {
     return (firstName[0] + lastName[0]).toUpperCase();
   };
 
-  const fullName = `${user.firstName} ${user.lastName}`.trim();
+  // ép kiểu user về UserProfile để dùng helper
+  const fullName = getUserFullName(user as unknown as UserProfile);
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.avatar} alt={fullName} />
+            <AvatarImage src={getUserAvatarUrl(user.avatar)} alt={fullName} />
             <AvatarFallback className="bg-rose-100 text-rose-700 text-sm font-medium">
               {getInitials(user.firstName, user.lastName)}
             </AvatarFallback>
@@ -72,7 +78,9 @@ export function UserMenu() {
               <span className="inline-block bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-xs font-medium">
                 {user.role.toUpperCase()}
               </span>
-              {(user.isEmailVerified as any) && (
+              {("isEmailVerified" in user
+                ? (user as any).isEmailVerified
+                : false) && (
                 <span className="inline-block bg-green-50 text-green-600 px-2 py-0.5 rounded-full text-xs font-medium">
                   ✓
                 </span>

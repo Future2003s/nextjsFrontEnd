@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import useTranslations from "@/i18n/useTranslations";
 
 export function DashboardPage() {
   const t = useTranslations();

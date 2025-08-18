@@ -16,6 +16,10 @@ export interface Product {
   quantity: number;
   sold: number;
   images: string[];
+  // optional denormalized fields often returned by backend
+  brandName?: string;
+  categoryName?: string;
+  // relations
   category:
     | string
     | {
@@ -30,6 +34,13 @@ export interface Product {
         name: string;
         slug: string;
       };
+  // optional variants (if the backend supports variant pricing)
+  variants?: Array<{
+    _id?: string;
+    id?: string;
+    name: string;
+    price: number;
+  }>;
   tags: string[];
   status: "active" | "draft" | "archived";
   featured: boolean;
