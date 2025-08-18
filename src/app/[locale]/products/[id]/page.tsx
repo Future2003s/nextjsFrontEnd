@@ -1,0 +1,528 @@
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import { productsApi, type ProductDetail } from "@/apiRequests/products";
+import { useParams, useRouter } from "next/navigation";
+import BuyNowModal from "@/components/ui/buy-now-modal";
+import { useAppContextProvider } from "@/context/app-context";
+import { useCartStore } from "@/store/cart";
+import { Loader } from "@/components/ui/loader";
+import {
+  ArrowLeft,
+  ShoppingCart,
+  Heart,
+  Share2,
+  Truck,
+  Shield,
+  RotateCcw,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
+    amount
+  );
+
+export default function ProductDetail() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const id = params?.id as string;
+  const { sessionToken } = useAppContextProvider();
+
+  const [item, setItem] = useState<ProductDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [qty, setQty] = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [buyOpen, setBuyOpen] = useState(false);
+  const [loginPromptOpen, setLoginPromptOpen] = useState(false);
+  const addItem = useCartStore((s) => s.addItem);
+
+  useEffect(() => {
+    if (!id) return;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res: any = await productsApi.detail(id);
+        setItem(res?.data ?? null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id]);
+
+  const price = useMemo(() => {
+    if (!item) return 0;
+    const v = item.variants?.find((x) => x.id === selectedVariant);
+    return Number(v?.price ?? item.price);
+  }, [item, selectedVariant]);
+
+  if (loading || !item) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pt-25 flex items-center justify-center">
+        <Loader
+          isLoading={true}
+          message="Đang tải thông tin sản phẩm..."
+          size="lg"
+          overlay={false}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pt-25">
+      <div className="container mx-auto px-4 py-8">
+        {/* Breadcrumb Navigation - Amazon Style */}
+        <div className="mb-6">
+          <nav className="flex items-center space-x-2 text-sm text-gray-600">
+            <button
+              onClick={() => router.push("/")}
+              className="hover:text-blue-600 hover:underline"
+            >
+              Home
+            </button>
+            <span className="text-gray-400">›</span>
+            <button
+              onClick={() => router.push("/products")}
+              className="hover:text-blue-600 hover:underline"
+            >
+              Products
+            </button>
+            <span className="text-gray-400">›</span>
+            <span className="text-gray-900 font-medium truncate max-w-xs">
+              {item.categoryName || "Category"}
+            </span>
+            <span className="text-gray-400">›</span>
+            <span className="text-gray-900 font-medium truncate max-w-xs">
+              {item.name}
+            </span>
+          </nav>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Product Images - Amazon Style */}
+          <div className="space-y-4">
+            {/* Main Image Container */}
+            <div className="relative">
+              {/* Main Image */}
+              <div className="aspect-[4/3] bg-white border border-gray-200 rounded-lg overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    item.imageUrls?.[selectedImageIndex] ||
+                    "https://placehold.co/800x600"
+                  }
+                  alt={item.name}
+                  className="w-full h-full object-contain p-4"
+                />
+              </div>
+
+              {/* Share Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2 h-8 w-8 p-0 bg-white/90 hover:bg-white shadow-sm"
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+
+              {/* Image Counter */}
+              {item.imageUrls?.length > 0 && (
+                <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
+                  {selectedImageIndex + 1} of {item.imageUrls.length}
+                </div>
+              )}
+            </div>
+
+            {/* Click to see full view */}
+            <div className="text-center">
+              <button className="text-sm text-blue-600 hover:text-blue-800 underline">
+                Click to see full view
+              </button>
+            </div>
+
+            {/* Thumbnail Gallery - Amazon Style */}
+            {item.imageUrls && item.imageUrls.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Product Images
+                  </h3>
+                  <span className="text-xs text-gray-500">
+                    {item.imageUrls.length} images
+                  </span>
+                </div>
+
+                {/* Thumbnail Row */}
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {item.imageUrls.map((url, i) => (
+                    <div
+                      key={i}
+                      onClick={() => setSelectedImageIndex(i)}
+                      className={`flex-shrink-0 cursor-pointer border-2 rounded-lg overflow-hidden transition-all duration-200 ${
+                        i === selectedImageIndex
+                          ? "border-blue-500 shadow-md"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="w-20 h-20 bg-white flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt={`Product image ${i + 1}`}
+                          className="w-full h-full object-contain p-1"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Video Thumbnail (if available) */}
+                  <div className="flex-shrink-0 cursor-pointer border-2 border-gray-200 rounded-lg overflow-hidden hover:border-gray-300">
+                    <div className="w-20 h-20 bg-gray-100 flex items-center justify-center relative">
+                      <div className="w-8 h-8 bg-black/70 rounded-full flex items-center justify-center">
+                        <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                      </div>
+                      <div className="absolute bottom-1 left-1 text-xs text-gray-600 font-medium">
+                        VIDEO
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Navigation Dots */}
+                <div className="flex justify-center gap-1">
+                  {item.imageUrls.map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-2 h-2 rounded-full transition-colors cursor-pointer ${
+                        i === selectedImageIndex ? "bg-blue-500" : "bg-gray-300"
+                      }`}
+                      onClick={() => setSelectedImageIndex(i)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Product Info */}
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-6 space-y-6">
+              {/* Header */}
+              <div className="space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 pr-4">
+                    <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 leading-tight mb-2">
+                      {item.name}
+                    </h1>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      {item.brandName && (
+                        <span className="flex items-center gap-1">
+                          <span className="font-medium">Thương hiệu:</span>
+                          {item.brandName}
+                        </span>
+                      )}
+                      {item.categoryName && (
+                        <span className="flex items-center gap-1">
+                          <span className="font-medium">Danh mục:</span>
+                          {item.categoryName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-10 w-10 p-0 hover:bg-gray-100"
+                    >
+                      <Heart className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-10 w-10 p-0 hover:bg-gray-100"
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {item.brandName && (
+                    <Badge variant="outline" className="text-xs">
+                      {item.brandName}
+                    </Badge>
+                  )}
+                  {item.categoryName && (
+                    <Badge variant="secondary" className="text-xs">
+                      {item.categoryName}
+                    </Badge>
+                  )}
+                  {item.stockQuantity !== undefined && (
+                    <Badge
+                      variant={
+                        item.stockQuantity > 0 ? "default" : "destructive"
+                      }
+                      className="text-xs"
+                    >
+                      {item.stockQuantity > 0
+                        ? `Còn ${item.stockQuantity} sản phẩm`
+                        : "Hết hàng"}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Price Section */}
+              <div className="space-y-3">
+                <div className="flex items-baseline gap-2">
+                  <div className="text-2xl lg:text-3xl font-bold text-blue-600">
+                    {formatCurrency(price)}
+                  </div>
+                  {item.stockQuantity !== undefined &&
+                    item.stockQuantity > 0 && (
+                      <div className="text-sm text-green-600 font-medium">
+                        ✓ Còn hàng
+                      </div>
+                    )}
+                </div>
+
+                {item.variants?.find((v) => v.id === selectedVariant) && (
+                  <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                    <span className="font-medium">Biến thể đã chọn:</span>{" "}
+                    {item.variants.find((v) => v.id === selectedVariant)?.name}
+                  </div>
+                )}
+              </div>
+
+              {/* Variants */}
+              {item.variants?.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-gray-700">
+                      Chọn biến thể
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {item.variants.length} lựa chọn
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {item.variants.map((variant) => (
+                      <Button
+                        key={variant.id}
+                        variant={
+                          selectedVariant === variant.id ? "default" : "outline"
+                        }
+                        onClick={() => setSelectedVariant(variant.id)}
+                        className="h-12 justify-start px-3"
+                      >
+                        <div className="text-left">
+                          <div className="font-medium">{variant.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {formatCurrency(Number(variant.price))}
+                          </div>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tags */}
+              {item.tags?.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-gray-700">
+                      Thông tin sản phẩm
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {item.tags.length} tags
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {item.tags.map((tag, index) => (
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="text-xs px-3 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Quantity Selector */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium text-gray-700">
+                    Số lượng
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Còn {item.stockQuantity || 999} sản phẩm
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    className="h-10 w-10 p-0 hover:bg-gray-50"
+                    disabled={qty <= 1}
+                  >
+                    -
+                  </Button>
+                  <div className="w-16 text-center text-lg font-medium bg-gray-50 py-2 rounded-lg">
+                    {qty}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQty((q) => q + 1)}
+                    className="h-10 w-10 p-0 hover:bg-gray-50"
+                  >
+                    +
+                  </Button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-6">
+                <div className="flex gap-3">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="flex-1 h-14 text-base font-medium"
+                    onClick={() => {
+                      const variant =
+                        item.variants?.find((x) => x.id === selectedVariant) ||
+                        null;
+                      addItem({
+                        id: item.id,
+                        productId: item.id,
+                        variantId: variant?.id || null,
+                        variantName: variant?.name || null,
+                        name: variant
+                          ? `${item.name} - ${variant.name}`
+                          : item.name,
+                        price: Number(variant?.price ?? item.price) || 0,
+                        quantity: qty,
+                        imageUrl: item.imageUrls?.[0],
+                      });
+                    }}
+                  >
+                    <ShoppingCart className="h-5 w-5 mr-2" />
+                    Thêm vào giỏ
+                  </Button>
+                  <Button
+                    size="lg"
+                    className="flex-1 h-14 text-base font-medium bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                    onClick={() => {
+                      if (!sessionToken) {
+                        setLoginPromptOpen(true);
+                        return;
+                      }
+                      setBuyOpen(true);
+                    }}
+                  >
+                    Mua ngay
+                  </Button>
+                </div>
+
+                {/* Features */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center space-y-2">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                        <Truck className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div className="text-xs text-gray-700 font-medium">
+                        Miễn phí vận chuyển
+                      </div>
+                    </div>
+                    <div className="text-center space-y-2">
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                        <Shield className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div className="text-xs text-gray-700 font-medium">
+                        Bảo hành chính hãng
+                      </div>
+                    </div>
+                    <div className="text-center space-y-2">
+                      <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
+                        <RotateCcw className="h-5 w-5 text-orange-600" />
+                      </div>
+                      <div className="text-xs text-gray-700 font-medium">
+                        Đổi trả 30 ngày
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <BuyNowModal
+        open={buyOpen}
+        onClose={() => setBuyOpen(false)}
+        items={[{ name: item.name, price, quantity: qty }]}
+      />
+
+      {loginPromptOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setLoginPromptOpen(false)}
+          />
+          <Card className="relative w-full max-w-md border-0 shadow-2xl">
+            <CardContent className="p-0">
+              <div className="px-6 py-4 border-b flex items-center justify-between">
+                <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Yêu cầu đăng nhập
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLoginPromptOpen(false)}
+                  className="h-8 w-8 p-0"
+                >
+                  ✕
+                </Button>
+              </div>
+              <div className="p-6 space-y-4">
+                <p className="text-gray-700">
+                  Để tiếp tục mua hàng, vui lòng đăng nhập tài khoản của bạn.
+                </p>
+              </div>
+              <div className="px-6 py-4 border-t flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setLoginPromptOpen(false)}
+                >
+                  Để sau
+                </Button>
+                <Button
+                  onClick={() => router.push("/login")}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                >
+                  Đăng nhập
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
