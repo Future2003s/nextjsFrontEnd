@@ -25,6 +25,8 @@ import {
 import { toast } from "sonner";
 import ProductModal from "./components/ProductModal";
 import ProductViewModal from "./components/ProductViewModal";
+import { DebugInfo } from "./components/DebugInfo";
+import { BackendTest } from "./components/BackendTest";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -37,6 +39,7 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   // Modal states
   const [viewing, setViewing] = useState<any | null>(null);
@@ -194,13 +197,15 @@ export default function ProductsPage() {
 
       if (response.ok) {
         const result = await response.json();
+        console.log("Create product response:", result);
+
         const newProduct = result.data || result;
-        toast.success("Đã tạo sản phẩm thành công");
-        // Cập nhật state local thay vì gọi lại API
         setProducts((prev) => [newProduct, ...prev]);
         setCreating(false);
+        toast.success("Đã tạo sản phẩm thành công");
       } else {
-        throw new Error("Failed to create product");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create product");
       }
     } catch (error) {
       toast.error("Không thể tạo sản phẩm");
@@ -213,6 +218,8 @@ export default function ProductsPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      setError(null);
+
       const params = new URLSearchParams();
       if (searchTerm) params.set("q", searchTerm);
       if (categoryFilter !== "all") params.set("categoryId", categoryFilter);
@@ -220,16 +227,22 @@ export default function ProductsPage() {
       params.set("page", String(currentPage - 1));
       params.set("size", String(productsPerPage));
 
+      console.log("Fetching products with params:", params.toString());
+
       const res = await fetch(`/api/products/admin?${params.toString()}`, {
         cache: "no-store",
       });
 
+      console.log("Products response status:", res.status);
+
       if (res.ok) {
         const data = await res.json();
+        console.log("Products response data:", data);
+
         const list = Array.isArray(data?.data) ? data.data : [];
         setProducts(
           list.map((p: any) => ({
-            id: p.id,
+            id: p.id || p._id,
             name: p.name || p.productName || "",
             category: p.categoryName || p.category?.name || "",
             price: p.price || p.basePrice || 0,
@@ -242,18 +255,49 @@ export default function ProductsPage() {
               p.imageUrl ||
               (p.images && p.images.length > 0 ? p.images[0] : ""),
             description: p.description || "",
-            categoryId: p.categoryId || p.category?.id || "",
-            brandId: p.brandId || p.brand?.id || "",
+            categoryId: p.categoryId || p.category?._id || p.category?.id || "",
+            brandId: p.brandId || p.brand?._id || p.brand?.id || "",
             images: p.images || [],
             createdAt: p.createdAt,
             updatedAt: p.updatedAt,
           }))
         );
       } else {
-        setProducts([]);
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Failed to fetch products:", errorData);
+
+        // Handle different types of errors
+        let errorMessage = "Không thể tải danh sách sản phẩm";
+
+        if (errorData.error) {
+          if (errorData.error.includes("Validation failed")) {
+            errorMessage = "Lỗi validation dữ liệu từ backend";
+          } else if (errorData.error.includes("Unauthorized")) {
+            errorMessage = "Không có quyền truy cập. Vui lòng đăng nhập lại";
+          } else if (errorData.error.includes("Not Found")) {
+            errorMessage = "API endpoint không tồn tại";
+          } else {
+            errorMessage = errorData.error;
+          }
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (res.status === 401) {
+          errorMessage = "Không có quyền truy cập. Vui lòng đăng nhập lại";
+        } else if (res.status === 404) {
+          errorMessage = "API endpoint không tồn tại";
+        } else if (res.status === 500) {
+          errorMessage = "Lỗi server. Vui lòng thử lại sau";
+        } else {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+
+        throw new Error(errorMessage);
       }
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
       console.error("Error fetching products:", error);
+      setError(errorMessage);
       setProducts([]);
     } finally {
       setLoading(false);
@@ -395,6 +439,28 @@ export default function ProductsPage() {
         </Button>
       </div>
 
+      {/* Backend Test Component */}
+      <BackendTest />
+
+      {/* Error Display */}
+      {error && (
+        <DebugInfo
+          error={error}
+          onRetry={() => {
+            setError(null);
+            fetchProducts();
+          }}
+          onReset={() => {
+            setError(null);
+            setCurrentPage(1);
+            setSearchTerm("");
+            setCategoryFilter("all");
+            setStatusFilter("all");
+            fetchProducts();
+          }}
+        />
+      )}
+
       {/* Filters and Search */}
       <Card className="shadow-sm border-gray-200">
         <CardContent className="pt-6">
@@ -461,111 +527,140 @@ export default function ProductsPage() {
           <CardTitle className="flex items-center gap-2 text-gray-800">
             <Package className="h-5 w-5 text-blue-600" />
             Danh sách sản phẩm ({filteredProducts.length})
+            {loading && (
+              <div className="ml-2">
+                <Loader isLoading={true} size="sm" />
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="border rounded-lg p-4 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 bg-white"
-              >
-                {/* Product Image */}
-                <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover rounded-lg hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <ImageIcon className="h-12 w-12 text-gray-400" />
-                  )}
-                </div>
-
-                {/* Product Info */}
-                <div className="space-y-2">
-                  <h3 className="font-medium text-gray-900 line-clamp-2 hover:text-blue-600 transition-colors">
-                    {product.name}
-                  </h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      {product.brand}
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      {product.category}
-                    </Badge>
-                  </div>
-                  <div className="text-lg font-bold text-gray-900">
-                    {formatPrice(product.price)}
-                  </div>
-
-                  {/* Stock and Status */}
-                  <div className="flex items-center justify-between">
-                    <Badge
-                      variant={getStockBadgeVariant(product.stock) as any}
-                      className={`text-xs ${getStockBadgeColor(product.stock)}`}
-                    >
-                      {product.stock === 0
-                        ? "Hết hàng"
-                        : `${product.stock} cái`}
-                    </Badge>
-                    <Badge
-                      variant={getStatusBadgeVariant(product.status) as any}
-                      className={`text-xs ${getStatusBadgeColor(
-                        product.status
-                      )}`}
-                    >
-                      {product.status === "ACTIVE"
-                        ? "Hoạt động"
-                        : product.status === "INACTIVE"
-                        ? "Ngừng kinh doanh"
-                        : product.status === "OUT_OF_STOCK"
-                        ? "Hết hàng"
-                        : product.status}
-                    </Badge>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all"
-                      onClick={() => handleView(product.id)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 hover:bg-green-50 hover:text-green-600 hover:border-green-300 transition-all"
-                      onClick={() => handleEdit(product.id)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300 transition-all"
-                      onClick={() => handleDelete(product.id)}
-                      disabled={deletingId === product.id}
-                    >
-                      {deletingId === product.id ? (
-                        <Loader isLoading={true} size="sm" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
+          {loading ? (
+            // Loading skeletons
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: productsPerPage }).map((_, i) => (
+                <div key={i} className="border rounded-lg p-4 bg-white">
+                  <div className="aspect-square bg-gray-200 rounded-lg mb-4 animate-pulse"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3"></div>
+                    <div className="h-5 bg-gray-200 rounded animate-pulse w-1/2"></div>
+                    <div className="flex gap-2">
+                      <div className="h-6 bg-gray-200 rounded animate-pulse flex-1"></div>
+                      <div className="h-6 bg-gray-200 rounded animate-pulse flex-1"></div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="border rounded-lg p-4 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 bg-white"
+                >
+                  {/* Product Image */}
+                  <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                    {product.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover rounded-lg hover:scale-110 transition-transform duration-300"
+                      />
+                    ) : (
+                      <ImageIcon className="h-12 w-12 text-gray-400" />
+                    )}
+                  </div>
 
-          {filteredProducts.length === 0 && (
+                  {/* Product Info */}
+                  <div className="space-y-2">
+                    <h3 className="font-medium text-gray-900 line-clamp-2 hover:text-blue-600 transition-colors">
+                      {product.name}
+                    </h3>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">
+                        {product.brand}
+                      </span>
+                      <Badge variant="outline" className="text-xs">
+                        {product.category}
+                      </Badge>
+                    </div>
+                    <div className="text-lg font-bold text-gray-900">
+                      {formatPrice(product.price)}
+                    </div>
+
+                    {/* Stock and Status */}
+                    <div className="flex items-center justify-between">
+                      <Badge
+                        variant={getStockBadgeVariant(product.stock) as any}
+                        className={`text-xs ${getStockBadgeColor(
+                          product.stock
+                        )}`}
+                      >
+                        {product.stock === 0
+                          ? "Hết hàng"
+                          : `${product.stock} cái`}
+                      </Badge>
+                      <Badge
+                        variant={getStatusBadgeVariant(product.status) as any}
+                        className={`text-xs ${getStatusBadgeColor(
+                          product.status
+                        )}`}
+                      >
+                        {product.status === "ACTIVE"
+                          ? "Hoạt động"
+                          : product.status === "INACTIVE"
+                          ? "Ngừng kinh doanh"
+                          : product.status === "OUT_OF_STOCK"
+                          ? "Hết hàng"
+                          : product.status}
+                      </Badge>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all"
+                        onClick={() => handleView(product.id)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 hover:bg-green-50 hover:text-green-600 hover:border-green-300 transition-all"
+                        onClick={() => handleEdit(product.id)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300 transition-all"
+                        onClick={() => handleDelete(product.id)}
+                        disabled={deletingId === product.id}
+                      >
+                        {deletingId === product.id ? (
+                          <Loader isLoading={true} size="sm" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && filteredProducts.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              Không tìm thấy sản phẩm nào
+              {error
+                ? "Không thể tải danh sách sản phẩm"
+                : "Không tìm thấy sản phẩm nào"}
             </div>
           )}
         </CardContent>

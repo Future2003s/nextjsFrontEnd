@@ -65,10 +65,26 @@ export const RegisterRequest = z.object({
   password: z.string().min(6, "Mật Khẩu Yêu Cầu Tối Thiểu 6 Ký Tự"),
 });
 
+// New schema for backend compatibility
+export const RegisterRequestBackend = z.object({
+  firstName: z
+    .string()
+    .min(2, "Tên phải có ít nhất 2 ký tự")
+    .max(50, "Tên không được quá 50 ký tự"),
+  lastName: z
+    .string()
+    .min(2, "Họ phải có ít nhất 2 ký tự")
+    .max(50, "Họ không được quá 50 ký tự"),
+  email: z.string().email("Email không đúng định dạng"),
+  password: z
+    .string()
+    .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
+    .max(128, "Mật khẩu không được quá 128 ký tự"),
+  phone: z.string().optional(),
+});
+
 export type RegisterRequestType = z.infer<typeof RegisterRequest>;
-
+export type RegisterRequestBackendType = z.infer<typeof RegisterRequestBackend>;
 export type LoginResType = z.infer<typeof LoginRes>;
-
 export type LoginBodyType = z.infer<typeof authSchema>;
-
 export type ExtendedLoginBodyType = z.infer<typeof loginSchema>;

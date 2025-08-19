@@ -42,9 +42,26 @@ export const OrderEditModal = ({
     "Chờ xử lý": "PENDING",
   };
 
-  const [status, setStatus] = useState<string>(
-    backendToVietnamese[order.status] || order.status
-  );
+  // Get current status in Vietnamese
+  const getCurrentStatusInVietnamese = (backendStatus: string) => {
+    return backendToVietnamese[backendStatus] || backendStatus;
+  };
+
+  // Get backend status from Vietnamese
+  const getBackendStatus = (vietnameseStatus: string) => {
+    return vietnameseToBackend[vietnameseStatus] || "PENDING";
+  };
+
+  // Initialize status based on order.status (which might be in Vietnamese or backend format)
+  const [status, setStatus] = useState<string>(() => {
+    // If order.status is already in Vietnamese, use it directly
+    if (Object.values(backendToVietnamese).includes(order.status)) {
+      return order.status;
+    }
+    // If order.status is in backend format, convert to Vietnamese
+    return getCurrentStatusInVietnamese(order.status);
+  });
+
   const [note, setNote] = useState<string>("");
   const [updating, setUpdating] = useState(false);
 
@@ -53,13 +70,19 @@ export const OrderEditModal = ({
 
     setUpdating(true);
     try {
-      const backendStatus = vietnameseToBackend[status] || "PENDING";
+      const backendStatus = getBackendStatus(status);
 
       console.log("Sending order status update:", {
         orderId: order.id,
-        status: backendStatus,
+        currentStatus: order.status,
+        newStatus: status,
+        backendStatus: backendStatus,
         note: note.trim() || "No note",
         url: `/api/orders/${order.id}/status`,
+        requestBody: {
+          status: backendStatus,
+          ...(note.trim() && { note: note.trim() }),
+        },
       });
 
       const response = await fetch(`/api/orders/${order.id}/status`, {
@@ -88,8 +111,13 @@ export const OrderEditModal = ({
       const result = await response.json();
 
       if (result.success) {
-        // Không cần tạo updatedOrder ở đây, để fetchOrders() lấy data mới từ backend
-        onSave(order as any);
+        // Create updated order with new status
+        const updatedOrder: Order = {
+          ...order,
+          status: status as Order["status"], // Cast to correct type
+        };
+
+        onSave(updatedOrder);
         toast.success("Cập nhật trạng thái thành công");
       } else {
         throw new Error(result.message || "Cập nhật thất bại");
@@ -129,9 +157,13 @@ export const OrderEditModal = ({
               </button>
             </div>
             <p className="text-gray-500 mt-2">Mã ĐH: {order.id}</p>
+            <p className="text-gray-500 mt-1">
+              Trạng thái hiện tại: {order.status}
+            </p>
+
             <div className="mt-6">
               <Label htmlFor="status" className="mb-2 block">
-                Trạng thái đơn hàng
+                Trạng thái đơn hàng mới
               </Label>
               <Select
                 value={status}

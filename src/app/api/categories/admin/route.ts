@@ -1,36 +1,42 @@
 import { NextRequest } from "next/server";
 import { envConfig } from "@/config";
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const includeInactive = searchParams.get("includeInactive");
+  const parent = searchParams.get("parent");
+  const page = searchParams.get("page") || "0";
+  const limit = searchParams.get("limit") || "50";
+
+  const params = new URLSearchParams();
+  if (includeInactive) params.set("includeInactive", includeInactive);
+  if (parent) params.set("parent", parent);
+  params.set("page", page);
+  params.set("limit", limit);
+
+  const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${
+    envConfig.NEXT_PUBLIC_API_VERSION
+  }/categories?${params.toString()}`;
+
+  console.log("Admin categories API called, backend URL:", backendUrl);
+
   try {
-    const { id } = params;
-    const body = await request.json();
-    console.log(`Updating product ${id} with data:`, body);
-
-    const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/products/${id}`;
-
-    console.log("Update product API called, backend URL:", backendUrl);
-
     const res = await fetch(backendUrl, {
-      method: "PUT",
+      cache: "no-store",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
-      console.error("Update product API error - status:", res.status);
+      console.error("Admin categories API error - status:", res.status);
       const errorText = await res.text();
       console.error("Error response:", errorText);
 
       return new Response(
         JSON.stringify({
-          success: false,
-          message: "Failed to update product",
+          data: [],
+          message: "Failed to fetch categories",
           error: errorText,
         }),
         {
@@ -41,17 +47,17 @@ export async function PUT(
     }
 
     const data = await res.json();
-    console.log("Update product API response:", data);
+    console.log("Admin categories API response:", data);
 
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("Update product API error:", e);
+    console.error("Admin categories API error:", e);
     return new Response(
       JSON.stringify({
-        success: false,
+        data: [],
         message: "Internal Error",
         error: e instanceof Error ? e.message : "Unknown error",
       }),
@@ -63,34 +69,32 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest) {
   try {
-    const { id } = params;
-    console.log(`Deleting product ${id}`);
+    const body = await request.json();
+    console.log("Creating category with data:", body);
 
-    const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/products/${id}`;
+    const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/categories`;
 
-    console.log("Delete product API called, backend URL:", backendUrl);
+    console.log("Create category API called, backend URL:", backendUrl);
 
     const res = await fetch(backendUrl, {
-      method: "DELETE",
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
-      console.error("Delete product API error - status:", res.status);
+      console.error("Create category API error - status:", res.status);
       const errorText = await res.text();
       console.error("Error response:", errorText);
 
       return new Response(
         JSON.stringify({
           success: false,
-          message: "Failed to delete product",
+          message: "Failed to create category",
           error: errorText,
         }),
         {
@@ -101,14 +105,14 @@ export async function DELETE(
     }
 
     const data = await res.json();
-    console.log("Delete product API response:", data);
+    console.log("Create category API response:", data);
 
     return new Response(JSON.stringify(data), {
-      status: 200,
+      status: 201,
       headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("Delete product API error:", e);
+    console.error("Create category API error:", e);
     return new Response(
       JSON.stringify({
         success: false,

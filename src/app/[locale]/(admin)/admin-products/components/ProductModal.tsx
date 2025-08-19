@@ -48,6 +48,9 @@ export default function ProductModal({
   });
   const [loading, setLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const editing = mode === "edit";
 
   useEffect(() => {
     if (product && mode === "edit") {
@@ -79,25 +82,60 @@ export default function ProductModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+
+    // Client-side validation
+    if (!formData.name.trim()) {
+      setError("Tên sản phẩm là bắt buộc");
+      return;
+    }
+    if (!formData.sku.trim()) {
+      setError("SKU là bắt buộc");
+      return;
+    }
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      setError("Giá sản phẩm phải lớn hơn 0");
+      return;
+    }
+    if (!formData.stock || parseInt(formData.stock) < 0) {
+      setError("Số lượng tồn kho không được âm");
+      return;
+    }
 
     try {
-      const submitData = {
-        ...formData,
+      setError(null);
+      setLoading(true);
+
+      // Prepare data for backend
+      const productData = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock),
+        sku: formData.sku.trim(),
+        categoryId: formData.categoryId || undefined,
+        brandId: formData.brandId || undefined,
+        status: formData.status,
+        images: formData.images || [],
       };
 
-      await onSave(submitData);
-      toast.success(
-        mode === "create"
-          ? "Sản phẩm đã được tạo thành công"
-          : "Sản phẩm đã được cập nhật thành công"
-      );
+      console.log("Submitting product data:", productData);
+
+      if (editing) {
+        // Update existing product
+        await onSave(productData);
+      } else {
+        // Create new product
+        await onSave(productData);
+      }
+
       onClose();
     } catch (error) {
-      toast.error("Có lỗi xảy ra khi lưu sản phẩm");
-      console.error("Error saving product:", error);
+      console.error("Error submitting product:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra khi lưu sản phẩm"
+      );
     } finally {
       setLoading(false);
     }
@@ -364,6 +402,8 @@ export default function ProductModal({
                 </div>
               )}
             </div>
+
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
             <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
               <Button

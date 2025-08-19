@@ -8,11 +8,11 @@ export async function PUT(
   try {
     const { id } = params;
     const body = await request.json();
-    console.log(`Updating product ${id} with data:`, body);
+    console.log(`Updating brand ${id} with data:`, body);
 
-    const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/products/${id}`;
+    const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/brands/${id}`;
 
-    console.log("Update product API called, backend URL:", backendUrl);
+    console.log("Update brand API called, backend URL:", backendUrl);
 
     const res = await fetch(backendUrl, {
       method: "PUT",
@@ -23,14 +23,14 @@ export async function PUT(
     });
 
     if (!res.ok) {
-      console.error("Update product API error - status:", res.status);
+      console.error("Update brand API error - status:", res.status);
       const errorText = await res.text();
       console.error("Error response:", errorText);
 
       return new Response(
         JSON.stringify({
           success: false,
-          message: "Failed to update product",
+          message: "Failed to update brand",
           error: errorText,
         }),
         {
@@ -41,14 +41,14 @@ export async function PUT(
     }
 
     const data = await res.json();
-    console.log("Update product API response:", data);
+    console.log("Update brand API response:", data);
 
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("Update product API error:", e);
+    console.error("Update brand API error:", e);
     return new Response(
       JSON.stringify({
         success: false,
@@ -69,11 +69,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = params;
-    console.log(`Deleting product ${id}`);
+    console.log(`Deleting brand ${id}`);
 
-    const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/products/${id}`;
+    const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/brands/${id}`;
 
-    console.log("Delete product API called, backend URL:", backendUrl);
+    console.log("Delete brand API called, backend URL:", backendUrl);
 
     const res = await fetch(backendUrl, {
       method: "DELETE",
@@ -83,14 +83,14 @@ export async function DELETE(
     });
 
     if (!res.ok) {
-      console.error("Delete product API error - status:", res.status);
+      console.error("Delete brand API error - status:", res.status);
       const errorText = await res.text();
       console.error("Error response:", errorText);
 
       return new Response(
         JSON.stringify({
           success: false,
-          message: "Failed to delete product",
+          message: "Failed to delete brand",
           error: errorText,
         }),
         {
@@ -101,14 +101,14 @@ export async function DELETE(
     }
 
     const data = await res.json();
-    console.log("Delete product API response:", data);
+    console.log("Delete brand API response:", data);
 
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("Delete product API error:", e);
+    console.error("Delete brand API error:", e);
     return new Response(
       JSON.stringify({
         success: false,

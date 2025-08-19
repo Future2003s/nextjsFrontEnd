@@ -108,13 +108,13 @@ export const useOrders = () => {
   }, []); // Remove sessionToken dependency
 
   const updateOrder = (updatedOrder: Order) => {
-    // Optimistically update the order in the list
+    // Update the order in the list with new status
     setOrders((prevOrders) =>
       prevOrders.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
     );
 
-    // Then fetch fresh data
-    fetchOrders(pagination.page, pagination.size);
+    // Show success message
+    console.log("Order updated successfully:", updatedOrder);
   };
 
   const goToPage = (page: number) => {

@@ -2,19 +2,9 @@ import { NextRequest } from "next/server";
 import { envConfig } from "@/config";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const includeInactive = searchParams.get("includeInactive");
-  const parent = searchParams.get("parent");
+  const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/brands/popular`;
 
-  const params = new URLSearchParams();
-  if (includeInactive) params.set("includeInactive", includeInactive);
-  if (parent) params.set("parent", parent);
-
-  const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${
-    envConfig.NEXT_PUBLIC_API_VERSION
-  }/categories?${params.toString()}`;
-
-  console.log("Categories API called, backend URL:", backendUrl);
+  console.log("Popular brands API called, backend URL:", backendUrl);
 
   try {
     const res = await fetch(backendUrl, {
@@ -25,9 +15,9 @@ export async function GET(request: NextRequest) {
     });
 
     if (!res.ok) {
-      console.error("Categories API error - status:", res.status);
+      console.error("Popular brands API error - status:", res.status);
       return new Response(
-        JSON.stringify({ data: [], message: "Failed to fetch categories" }),
+        JSON.stringify({ data: [], message: "Failed to fetch popular brands" }),
         {
           status: res.status,
           headers: { "Content-Type": "application/json" },
@@ -36,14 +26,14 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json();
-    console.log("Categories API response:", data);
+    console.log("Popular brands API response:", data);
 
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("Categories API error:", e);
+    console.error("Popular brands API error:", e);
     return new Response(
       JSON.stringify({ data: [], message: "Internal Error" }),
       {
