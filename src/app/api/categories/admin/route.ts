@@ -11,7 +11,9 @@ export async function GET(request: NextRequest) {
   const params = new URLSearchParams();
   if (includeInactive) params.set("includeInactive", includeInactive);
   if (parent) params.set("parent", parent);
-  params.set("page", page);
+  // Fix pagination: use page=1 for backend if page=0 from frontend
+  const backendPage = parseInt(page) === 0 ? "1" : page;
+  params.set("page", backendPage);
   params.set("limit", limit);
 
   const backendUrl = `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${

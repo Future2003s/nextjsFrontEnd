@@ -1,11 +1,12 @@
 import { cookies } from "next/headers";
+import { envConfig } from "@/config";
 
 export async function GET(request: Request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("sessionToken")?.value || "";
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_END_POINT}/categories`,
+      `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/categories`,
       {
         cache: "no-store",
         headers: {
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const authHeader = request.headers.get("authorization") || "";
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_END_POINT}/create-category`,
+      `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/categories`,
       {
         method: "POST",
         headers: {

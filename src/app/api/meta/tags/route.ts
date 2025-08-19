@@ -1,22 +1,19 @@
 import { cookies } from "next/headers";
+import { envConfig } from "@/config";
 
 export async function GET(request: Request) {
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_END_POINT;
-    if (!apiBase) {
-      return new Response(
-        JSON.stringify({ message: "Missing NEXT_PUBLIC_API_END_POINT" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
     const cookieStore = await cookies();
     const token = cookieStore.get("sessionToken")?.value || "";
-    const res = await fetch(`${apiBase}/tags`, {
-      cache: "no-store",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
+    const res = await fetch(
+      `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/tags`,
+      {
+        cache: "no-store",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      }
+    );
     const contentType = res.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       const data = await res.json();
@@ -45,23 +42,19 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_END_POINT;
-    if (!apiBase) {
-      return new Response(
-        JSON.stringify({ message: "Missing NEXT_PUBLIC_API_END_POINT" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
     const body = await request.json();
     const authHeader = request.headers.get("authorization") || "";
-    const res = await fetch(`${apiBase}/tags`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(authHeader ? { Authorization: authHeader } : {}),
-      },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(
+      `${envConfig.NEXT_PUBLIC_BACKEND_URL}/api/${envConfig.NEXT_PUBLIC_API_VERSION}/tags`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authHeader ? { Authorization: authHeader } : {}),
+        },
+        body: JSON.stringify(body),
+      }
+    );
     const contentType = res.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       const data = await res.json();

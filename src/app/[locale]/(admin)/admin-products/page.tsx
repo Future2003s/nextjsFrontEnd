@@ -40,6 +40,8 @@ export default function ProductsPage() {
   const [brands, setBrands] = useState<any[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [loadingBrands, setLoadingBrands] = useState(false);
 
   // Modal states
   const [viewing, setViewing] = useState<any | null>(null);
@@ -246,8 +248,15 @@ export default function ProductsPage() {
             name: p.name || p.productName || "",
             category: p.categoryName || p.category?.name || "",
             price: p.price || p.basePrice || 0,
-            stock: p.stock || p.inventoryQuantity || 0,
-            status: p.status || "ACTIVE",
+            stock: p.stock || p.quantity || p.inventoryQuantity || 0, // Handle both stock and quantity
+            status:
+              p.status === "active"
+                ? "ACTIVE"
+                : p.status === "archived"
+                ? "INACTIVE"
+                : p.status === "draft"
+                ? "DRAFT"
+                : p.status || "ACTIVE", // Map backend status to frontend
             sku: p.sku || p.code || "",
             brand: p.brandName || p.brand?.name || "",
             image:
@@ -255,8 +264,13 @@ export default function ProductsPage() {
               p.imageUrl ||
               (p.images && p.images.length > 0 ? p.images[0] : ""),
             description: p.description || "",
-            categoryId: p.categoryId || p.category?._id || p.category?.id || "",
-            brandId: p.brandId || p.brand?._id || p.brand?.id || "",
+            categoryId:
+              p.categoryId ||
+              p.category?._id ||
+              p.category?.id ||
+              p.category ||
+              "", // Handle both categoryId and category
+            brandId: p.brandId || p.brand?._id || p.brand?.id || p.brand || "", // Handle both brandId and brand
             images: p.images || [],
             createdAt: p.createdAt,
             updatedAt: p.updatedAt,
@@ -306,8 +320,69 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, currentPage, categoryFilter, statusFilter]);
+  }, [currentPage, searchTerm, categoryFilter, statusFilter]);
+
+  // Fetch categories and brands when component mounts
+  useEffect(() => {
+    fetchCategories();
+    fetchBrands();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      // Temporarily use test API to get sample data
+      const res = await fetch("/api/categories/test-crud", {
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Mock categories data for testing
+        const mockCategories = [
+          { id: "cat_test_1", name: "Electronics" },
+          { id: "cat_test_2", name: "Clothing" },
+          { id: "cat_test_3", name: "Books" },
+          { id: "cat_test_4", name: "Home & Garden" },
+        ];
+        setCategories(mockCategories);
+      } else {
+        console.error("Failed to fetch categories");
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  const fetchBrands = async () => {
+    try {
+      setLoadingBrands(true);
+      // Temporarily use test API to get sample data
+      const res = await fetch("/api/brands/test-crud", {
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Mock brands data for testing
+        const mockBrands = [
+          { id: "brand_test_1", name: "Apple" },
+          { id: "brand_test_2", name: "Samsung" },
+          { id: "brand_test_3", name: "Nike" },
+          { id: "brand_test_4", name: "Adidas" },
+        ];
+        setBrands(mockBrands);
+      } else {
+        console.error("Failed to fetch brands");
+      }
+    } catch (error) {
+      console.error("Error fetching brands:", error);
+    } finally {
+      setLoadingBrands(false);
+    }
+  };
 
   useEffect(() => {
     const loadFilters = async () => {
@@ -393,11 +468,15 @@ export default function ProductsPage() {
       case "ACTIVE":
         return "bg-green-100 text-green-800";
       case "INACTIVE":
-        return "bg-gray-100 text-gray-800";
-      case "OUT_OF_STOCK":
         return "bg-red-100 text-red-800";
+      case "OUT_OF_STOCK":
+        return "bg-yellow-100 text-yellow-800";
+      case "DISCONTINUED":
+        return "bg-gray-100 text-gray-800";
+      case "DRAFT":
+        return "bg-blue-100 text-blue-800";
       default:
-        return "";
+        return "bg-gray-100 text-gray-800";
     }
   };
 

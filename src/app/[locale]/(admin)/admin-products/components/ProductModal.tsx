@@ -43,7 +43,7 @@ export default function ProductModal({
     sku: "",
     categoryId: "",
     brandId: "",
-    status: "ACTIVE",
+    status: "draft", // Changed from "ACTIVE" to "draft"
     images: [] as string[],
   });
   const [loading, setLoading] = useState(false);
@@ -110,11 +110,16 @@ export default function ProductModal({
         name: formData.name.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price),
-        stock: parseInt(formData.stock),
+        quantity: parseInt(formData.stock), // Changed from stock to quantity
         sku: formData.sku.trim(),
-        categoryId: formData.categoryId || undefined,
-        brandId: formData.brandId || undefined,
-        status: formData.status,
+        category: formData.categoryId || undefined, // Changed from categoryId to category
+        brand: formData.brandId || undefined, // Changed from brandId to brand
+        status:
+          formData.status === "ACTIVE"
+            ? "active"
+            : formData.status === "INACTIVE"
+            ? "archived"
+            : "draft", // Map status values
         images: formData.images || [],
       };
 
@@ -352,9 +357,9 @@ export default function ProductModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ACTIVE">Hoạt động</SelectItem>
-                  <SelectItem value="INACTIVE">Ngừng kinh doanh</SelectItem>
-                  <SelectItem value="OUT_OF_STOCK">Hết hàng</SelectItem>
+                  <SelectItem value="draft">Nháp</SelectItem>
+                  <SelectItem value="active">Hoạt động</SelectItem>
+                  <SelectItem value="archived">Lưu trữ</SelectItem>
                 </SelectContent>
               </Select>
             </div>
