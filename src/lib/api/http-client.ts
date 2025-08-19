@@ -371,3 +371,21 @@ export const httpClient = new HttpClient();
 
 // Export for custom instances
 export { HttpClient };
+
+// Attach Authorization header if token exists in localStorage
+try {
+  httpClient.addRequestInterceptor((config) => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      const token = window.localStorage.getItem("auth_token");
+      if (token) {
+        config.headers = {
+          ...(config.headers || {}),
+          Authorization: `Bearer ${token}`,
+        } as Record<string, string>;
+      }
+    }
+    return config;
+  });
+} catch (_) {
+  // ignore if not in browser
+}

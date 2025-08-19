@@ -21,37 +21,49 @@ const MobileNavSheet = dynamic(() => import("./MobileNav"), {
 }>;
 import { useI18n } from "@/i18n/I18nProvider";
 import useTranslations from "@/i18n/useTranslations";
-import { authApiRequest } from "@/apiRequests/auth";
+import { useAuth } from "@/hooks/useAuth";
 import accountApiRequest from "@/apiRequests/account";
 import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
 
 // Navigation links will be translated in component
-const getNavLinks = (t: (key: string) => string, locale: string) => [
-  { href: `/${locale}`, label: t("nav.home") },
-  {
-    label: t("nav.products"),
-    href: `/${locale}/shop`,
-    subItems: [
-      { href: `/${locale}/products`, label: t("nav.all_products") },
-      { href: `/${locale}/products?q=m%E1%BA%ADt+ong`, label: t("nav.honey") },
-      {
-        href: `/${locale}/products?q=v%E1%BA%A3i`,
-        label: t("nav.lychee_products"),
-      },
-    ],
-  },
-  { href: `/${locale}/story`, label: t("nav.story") },
-  {
-    label: t("nav.functions"),
-    subItems: [
-      { href: `/${locale}/payment`, label: t("nav.payment") },
-      { href: `/${locale}/login`, label: t("nav.login") },
-      { href: `/${locale}/register`, label: t("nav.register") },
-      { href: `/${locale}/admin/dashboard`, label: t("nav.admin") },
-    ],
-  },
-];
+const getNavLinks = (
+  t: (key: string) => string,
+  locale: string,
+  isAdmin: boolean
+) => {
+  const links: any[] = [
+    { href: `/${locale}`, label: t("nav.home") },
+    {
+      label: t("nav.products"),
+      href: `/${locale}/shop`,
+      subItems: [
+        { href: `/${locale}/products`, label: t("nav.all_products") },
+        {
+          href: `/${locale}/products?q=m%E1%BA%ADt+ong`,
+          label: t("nav.honey"),
+        },
+        {
+          href: `/${locale}/products?q=v%E1%BA%A3i`,
+          label: t("nav.lychee_products"),
+        },
+      ],
+    },
+    { href: `/${locale}/story`, label: t("nav.story") },
+    {
+      label: t("nav.functions"),
+      subItems: [
+        { href: `/${locale}/payment`, label: t("nav.payment") },
+        { href: `/${locale}/login`, label: t("nav.login") },
+        { href: `/${locale}/register`, label: t("nav.register") },
+        ...(isAdmin
+          ? [{ href: `/${locale}/admin/dashboard`, label: t("nav.admin") }]
+          : []),
+      ],
+    },
+  ];
+  return links;
+};
 
 const ChevronDownIcon = ({ className }: { className?: string }) => (
   <svg
@@ -279,6 +291,7 @@ const Header = () => {
   const lastScrollY = useRef(0);
   const router = useRouter();
   const { sessionToken, setSessionToken } = useAppContextProvider();
+  const { logout } = useAuth();
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const totalQuantity = useCartStore((s) =>
@@ -286,7 +299,7 @@ const Header = () => {
   );
   const t = useTranslations();
   const { locale } = useI18n();
-  const navLinks = getNavLinks(t, locale);
+  const navLinks = getNavLinks(t, locale, isAdmin);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -315,8 +328,15 @@ const Header = () => {
       }
       try {
         const res: any = await accountApiRequest.me(sessionToken);
-        const roles: string[] = res?.data?.roles || [];
-        setIsAdmin(roles.includes("ADMIN") || roles.includes("ROLE_ADMIN"));
+        const role = (
+          res?.data?.role ||
+          res?.data?.user?.role ||
+          res?.role ||
+          ""
+        )
+          .toString()
+          .toUpperCase();
+        setIsAdmin(role === "ADMIN" || role === "STAFF");
       } catch {
         setIsAdmin(false);
       }
@@ -362,15 +382,17 @@ const Header = () => {
                       </span>
                       <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform group-hover:translate-y-0 -translate-y-2 z-50 border border-gray-200">
                         <div className="py-2">
-                          {link.subItems.map((item) => (
-                            <Link
-                              key={item.label}
-                              href={item.href}
-                              className="block w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-gray-100 hover:text-slate-900 transition-colors duration-200"
-                            >
-                              {item.label}
-                            </Link>
-                          ))}
+                          {link.subItems.map(
+                            (item: { href: string; label: string }) => (
+                              <Link
+                                key={item.label}
+                                href={item.href}
+                                className="block w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-gray-100 hover:text-slate-900 transition-colors duration-200"
+                              >
+                                {item.label}
+                              </Link>
+                            )
+                          )}
                         </div>
                       </div>
                     </>
@@ -423,13 +445,13 @@ const Header = () => {
                         className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors duration-200"
                         onClick={async () => {
                           try {
-                            await authApiRequest.logout();
+                            await logout();
                             setSessionToken("");
                             setIsAccountOpen(false);
                             toast.success("Đã đăng xuất", {
                               position: "top-center",
                             });
-                            router.push("/login");
+                            router.push(`/${locale}/login`);
                             router.refresh();
                           } catch {
                             toast.error("Đăng xuất thất bại", {

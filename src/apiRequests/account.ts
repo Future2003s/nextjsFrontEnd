@@ -2,7 +2,7 @@ import { http } from "@/lib/http";
 
 const accountApiRequest = {
   me: (sessionToken: string) => {
-    return http.get("/users/profile", {
+    return http.get("/auth/me", {
       headers: {
         Authorization: `Bearer ${sessionToken}`,
       },

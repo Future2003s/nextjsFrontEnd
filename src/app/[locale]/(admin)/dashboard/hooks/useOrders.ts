@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useAppContextProvider } from "@/context/app-context";
 import type { Order } from "../types";
 
 interface PaginationInfo {
@@ -24,19 +23,18 @@ export const useOrders = () => {
     first: true,
     last: false,
   });
-  const { sessionToken } = useAppContextProvider();
-
   const fetchOrders = async (page = 0, size = 10) => {
-    if (!sessionToken) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`/api/orders?page=${page}&size=${size}`, {
-        headers: { Authorization: `Bearer ${sessionToken}` },
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/orders/admin/all?page=${page}&size=${size}`,
+        {
+          credentials: "include", // Use cookies instead of Authorization header
+          cache: "no-store",
+        }
+      );
 
       if (!res.ok) {
         throw new Error("Failed to fetch orders");
@@ -107,7 +105,7 @@ export const useOrders = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, [sessionToken]);
+  }, []); // Remove sessionToken dependency
 
   const updateOrder = (updatedOrder: Order) => {
     // Optimistically update the order in the list

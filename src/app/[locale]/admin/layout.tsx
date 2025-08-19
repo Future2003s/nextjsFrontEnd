@@ -15,17 +15,21 @@ async function fetchMeServer() {
   const h = await headers();
   const host = h.get("host");
   const proto = h.get("x-forwarded-proto") || "http";
-  const url = `${proto}://${host}/api/account/me`;
+  const url = `${proto}://${host}/api/auth/me`;
   const cookieHeader = h.get("cookie") || "";
 
-  console.log("Admin layout auth check:", { url, hasCookie: !!cookieHeader });
+  console.log("Admin layout auth check:", {
+    url,
+    hasCookie: !!cookieHeader,
+    cookieValue: cookieHeader,
+  });
 
   const res = await fetch(url, {
     cache: "no-store",
     headers: { cookie: cookieHeader },
   });
 
-  console.log("Auth response status:", res.status);
+  console.log("Auth response status:", res.status, "ok:", res.ok);
   return res;
 }
 
@@ -40,7 +44,7 @@ export default async function AdminLayout({
     const res = await fetchMeServer();
     const currentPath = `/${params.locale}/admin`;
 
-    console.log("Admin layout - response status:", res.status);
+    console.log("Admin layout - response status:", res.status, "ok:", res.ok);
 
     if (res.status === 401) {
       console.log("Redirecting to login - unauthorized");
@@ -53,12 +57,21 @@ export default async function AdminLayout({
       );
     }
 
-    if (!res.ok) {
-      console.log("API error, redirecting to login");
+    if (res.status === 403) {
+      console.log("Redirecting to login - forbidden");
       redirect(
-        `/${params.locale}/login?reason=api_error&redirect=${encodeURIComponent(
+        `/${params.locale}/login?reason=forbidden&redirect=${encodeURIComponent(
           currentPath
         )}`
+      );
+    }
+
+    if (!res.ok) {
+      console.log("API error, redirecting to login", { status: res.status });
+      redirect(
+        `/${params.locale}/login?reason=api_error&status=${
+          res.status
+        }&redirect=${encodeURIComponent(currentPath)}`
       );
     }
 
@@ -66,7 +79,8 @@ export default async function AdminLayout({
     try {
       const text = await res.text();
       me = text ? JSON.parse(text) : null;
-      me = me?.data || me;
+      console.log("Raw parsed data:", me);
+      me = me?.user || me?.data || me;
       console.log("User data:", { email: me?.email, role: me?.role });
     } catch (parseError) {
       console.error("Failed to parse user data:", parseError);
@@ -86,12 +100,33 @@ export default async function AdminLayout({
       );
     }
 
+    if (!me.role) {
+      console.log("No role in user data, redirecting to login");
+      redirect(
+        `/${params.locale}/login?reason=no_role&redirect=${encodeURIComponent(
+          currentPath
+        )}`
+      );
+    }
+
+    if (!me.email) {
+      console.log("No email in user data, redirecting to login");
+      redirect(
+        `/${params.locale}/login?reason=no_email&redirect=${encodeURIComponent(
+          currentPath
+        )}`
+      );
+    }
+
     const role = (me?.role || "").toUpperCase();
     const allowed = role === "ADMIN" || role === "STAFF";
-    console.log("Role check:", { role, allowed });
+    console.log("Role check:", { role, allowed, originalRole: me?.role });
 
     if (!allowed) {
-      redirect(`/${params.locale}/me?unauthorized=1`);
+      console.log("User not authorized, redirecting to /me", { role, allowed });
+      redirect(
+        `/${params.locale}/me?unauthorized=1&role=${encodeURIComponent(role)}`
+      );
     }
 
     const navItems: AdminNavItem[] = [
@@ -138,13 +173,19 @@ export default async function AdminLayout({
         navItems={navItems}
         brand={{ name: "LALA-LYCHEE", short: "L" }}
         notifCount={0}
-        userName={me?.fullName || me?.name || "Admin"}
+        userName={me?.fullName || me?.firstName || me?.name || "Admin"}
       >
         {children}
       </AdminShell>
     );
   } catch (error) {
     console.error("Admin layout error:", error);
-    redirect(`/${params.locale}/login?reason=error`);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    redirect(
+      `/${params.locale}/login?reason=error&error=${encodeURIComponent(
+        errorMessage
+      )}`
+    );
   }
 }

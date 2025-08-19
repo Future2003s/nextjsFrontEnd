@@ -5,6 +5,7 @@
 
 import { BaseService } from "@/lib/api/base-service";
 import { httpClient } from "@/lib/api/http-client";
+import { API_CONFIG } from "@/lib/api-config";
 import { cacheService } from "@/lib/cache/cache-service";
 import { validator, commonSchemas } from "@/lib/validation/validator";
 import { ValidationError } from "@/lib/errors/types";
@@ -139,14 +140,14 @@ const createAddressSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
-class UserService {
-  private httpClient = httpClient;
+class UserService extends BaseService<UserProfile> {
+  private http = httpClient;
   constructor() {
     super("users", {
-      baseUrl: "/users",
+      baseUrl: API_CONFIG.USERS.PROFILE.replace("/profile", ""),
       cacheService,
       enableAudit: true,
-      defaultCacheTtl: 300, // 5 minutes for user data
+      defaultCacheTtl: 300,
     });
   }
 
@@ -166,7 +167,7 @@ class UserService {
       };
     }
 
-    const result = await this.httpClient.get<UserProfile>("/users/profile");
+    const result = await this.http.get<UserProfile>(API_CONFIG.USERS.PROFILE);
 
     // Cache user profile for 5 minutes
     if (result.success && result.data) {
@@ -198,8 +199,8 @@ class UserService {
       );
     }
 
-    const result = await this.httpClient.put<UserProfile>(
-      "/users/profile",
+    const result = await this.http.put<UserProfile>(
+      API_CONFIG.USERS.PROFILE,
       data
     );
 
@@ -233,7 +234,7 @@ class UserService {
       };
     }
 
-    const result = await this.httpClient.get<Address[]>("/users/addresses");
+    const result = await this.http.get<Address[]>(API_CONFIG.USERS.ADDRESSES);
 
     // Cache addresses for 10 minutes
     if (result.success && result.data) {
@@ -265,8 +266,8 @@ class UserService {
       );
     }
 
-    const result = await this.httpClient.post<Address>(
-      "/users/addresses",
+    const result = await this.http.post<Address>(
+      API_CONFIG.USERS.ADDRESSES,
       data
     );
 
@@ -301,8 +302,8 @@ class UserService {
       );
     }
 
-    const result = await this.httpClient.put<Address>(
-      `/users/addresses/${addressId}`,
+    const result = await this.http.put<Address>(
+      API_CONFIG.USERS.ADDRESS_BY_ID.replace(":addressId", addressId),
       data
     );
 
@@ -323,8 +324,8 @@ class UserService {
    * Delete address
    */
   async deleteAddress(addressId: string) {
-    const result = await this.httpClient.delete(
-      `/users/addresses/${addressId}`
+    const result = await this.http.delete(
+      API_CONFIG.USERS.ADDRESS_BY_ID.replace(":addressId", addressId)
     );
 
     // Invalidate addresses cache
@@ -344,8 +345,8 @@ class UserService {
    * Set default address
    */
   async setDefaultAddress(addressId: string) {
-    const result = await this.httpClient.put(
-      `/users/addresses/${addressId}/default`,
+    const result = await this.http.put(
+      API_CONFIG.USERS.SET_DEFAULT_ADDRESS.replace(":addressId", addressId),
       {}
     );
 
@@ -380,8 +381,11 @@ class UserService {
       };
     }
 
-    const result = await this.httpClient.get<any[]>(
-      `/users/orders?page=${page}&limit=${limit}`
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    const result = await this.http.get<any[]>(
+      `${API_CONFIG.ORDERS.USER_ORDERS}?${params.toString()}`
     );
 
     // Cache order history for 5 minutes
@@ -399,111 +403,7 @@ class UserService {
     };
   }
 
-  /**
-   * Get user wishlist
-   */
-  async getWishlist() {
-    const cacheKey = "user-wishlist";
-
-    // Try cache first
-    const cached = await cacheService.get<any[]>(cacheKey);
-    if (cached) {
-      return {
-        data: cached,
-        success: true,
-        meta: { cached: true, source: "cache", duration: 0 },
-      };
-    }
-
-    const result = await this.httpClient.get<any[]>("/users/wishlist");
-
-    // Cache wishlist for 10 minutes
-    if (result.success && result.data) {
-      await cacheService.set(cacheKey, result.data, 600);
-    }
-
-    return {
-      data: result.data || [],
-      success: result.success,
-      error: result.success ? undefined : new Error("Failed to get wishlist"),
-      meta: { cached: false, source: "api", duration: 0 },
-    };
-  }
-
-  /**
-   * Add item to wishlist
-   */
-  async addToWishlist(productId: string) {
-    const result = await this.httpClient.post("/users/wishlist", { productId });
-
-    // Invalidate wishlist cache
-    if (result.success) {
-      await cacheService.delete("user-wishlist");
-    }
-
-    return {
-      data: result.success,
-      success: result.success,
-      error: result.success
-        ? undefined
-        : new Error("Failed to add to wishlist"),
-      meta: { cached: false, source: "api", duration: 0 },
-    };
-  }
-
-  /**
-   * Remove item from wishlist
-   */
-  async removeFromWishlist(productId: string) {
-    const result = await this.httpClient.delete(`/users/wishlist/${productId}`);
-
-    // Invalidate wishlist cache
-    if (result.success) {
-      await cacheService.delete("user-wishlist");
-    }
-
-    return {
-      data: result.success,
-      success: result.success,
-      error: result.success
-        ? undefined
-        : new Error("Failed to remove from wishlist"),
-      meta: { cached: false, source: "api", duration: 0 },
-    };
-  }
-
-  /**
-   * Get user statistics
-   */
-  async getUserStatistics() {
-    const cacheKey = "user-statistics";
-
-    // Try cache first
-    const cached = await cacheService.get<UserProfile["statistics"]>(cacheKey);
-    if (cached) {
-      return {
-        data: cached,
-        success: true,
-        meta: { cached: true, source: "cache", duration: 0 },
-      };
-    }
-
-    const result = await this.httpClient.get<UserProfile["statistics"]>(
-      "/users/statistics"
-    );
-
-    // Cache statistics for 1 hour
-    if (result.success && result.data) {
-      await cacheService.set(cacheKey, result.data, 3600);
-    }
-
-    return {
-      data: result.data,
-      success: result.success,
-      error: result.success ? undefined : new Error("Failed to get statistics"),
-      meta: { cached: false, source: "api", duration: 0 },
-    };
-  }
+  // Note: wishlist/statistics endpoints are not present in backend; removed.
 
   /**
    * Invalidate all user-related caches

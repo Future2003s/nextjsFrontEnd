@@ -126,8 +126,11 @@ export async function middleware(request: NextRequest) {
     publicPath.some((path) => pathWithoutLocale.startsWith(path)) &&
     sessionId
   ) {
+    // Redirect to profile without adding noisy query params
     url.pathname = `/${locale}/me`;
-    url.searchParams.set("from", "already_logged_in");
+    url.searchParams.delete("from");
+    url.searchParams.delete("reason");
+    url.searchParams.delete("redirect");
     return NextResponse.redirect(url);
   }
 

@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const q = searchParams.get("q") ?? "";
   const categoryId = searchParams.get("categoryId");
   const brandId = searchParams.get("brandId");
-  const page = searchParams.get("page") ?? "0";
+  const page = searchParams.get("page") ?? "1";
   const size = searchParams.get("size") ?? "20";
 
   console.log("Products public API called with params:", {
@@ -17,19 +17,36 @@ export async function GET(request: NextRequest) {
     size,
   });
 
-  const backendUrl = new URL(
-    `${envConfig.NEXT_PUBLIC_API_END_POINT}/products/public`
-  );
-  if (q) backendUrl.searchParams.set("q", q);
-  if (categoryId) backendUrl.searchParams.set("categoryId", categoryId);
-  if (brandId) backendUrl.searchParams.set("brandId", brandId);
-  backendUrl.searchParams.set("page", page);
-  backendUrl.searchParams.set("size", size);
+  // Map to backend endpoints: /products, /products/search, /products/category/:categoryId, /products/brand/:brandId
+  let backendUrl: string;
+  const base = envConfig.NEXT_PUBLIC_API_END_POINT;
+  if (categoryId) {
+    const params = new URLSearchParams();
+    params.set("page", page);
+    params.set("limit", size);
+    backendUrl = `${base}/products/category/${categoryId}?${params.toString()}`;
+  } else if (brandId) {
+    const params = new URLSearchParams();
+    params.set("page", page);
+    params.set("limit", size);
+    backendUrl = `${base}/products/brand/${brandId}?${params.toString()}`;
+  } else if (q) {
+    const params = new URLSearchParams();
+    params.set("q", q);
+    params.set("page", page);
+    params.set("limit", size);
+    backendUrl = `${base}/products/search?${params.toString()}`;
+  } else {
+    const params = new URLSearchParams();
+    params.set("page", page);
+    params.set("limit", size);
+    backendUrl = `${base}/products?${params.toString()}`;
+  }
 
   console.log("Backend URL:", backendUrl.toString());
 
   try {
-    const res = await fetch(backendUrl.toString(), { cache: "no-store" });
+    const res = await fetch(backendUrl, { cache: "no-store" });
     console.log("Products API response status:", res.status);
 
     if (!res.ok) {
@@ -53,16 +70,11 @@ export async function GET(request: NextRequest) {
     }
     console.log("Products API raw response:", raw);
 
-    // Backend returns ResponseData<List<ProductListItemResponse>>
-    // So raw.data should be the array
-    const list = Array.isArray(raw?.data)
+    // Normalize backend response: either { success, data: { products, pagination } } or { success, data: [] }
+    const list = Array.isArray(raw?.data?.products)
+      ? raw.data.products
+      : Array.isArray(raw?.data)
       ? raw.data
-      : Array.isArray(raw?.data?.content)
-      ? raw.data.content
-      : Array.isArray(raw?.content)
-      ? raw.content
-      : Array.isArray(raw)
-      ? raw
       : [];
 
     console.log("Products API normalized length:", list.length);

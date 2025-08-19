@@ -38,6 +38,15 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Map backend status to Vietnamese for display
+const statusToVietnamese: Record<string, string> = {
+  PROCESSING: "Đang xử lý",
+  DELIVERED: "Đã giao",
+  CANCELLED: "Đã huỷ",
+  SHIPPED: "Đang giao",
+  PENDING: "Chờ xử lý",
+};
+
 interface OrdersViewProps {
   orders: Order[];
   loading: boolean;
@@ -180,7 +189,7 @@ export const OrdersView = ({
                   <TableCell>{order.total}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(order.status)}>
-                      {order.status}
+                      {statusToVietnamese[order.status] || order.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">

@@ -11,6 +11,8 @@ export async function fetchMe() {
       headers: { Accept: "application/json" },
     });
 
+    console.log("fetchMe response:", { status: res.status, ok: res.ok });
+
     if (res.status === 401) {
       throw new Error("No authentication token found");
     }
@@ -20,8 +22,10 @@ export async function fetchMe() {
       ? await res.json()
       : await res.text();
 
+    console.log("fetchMe data:", data);
+
     // Chuẩn hoá format: ưu tiên data.success === true
-    if (res.ok && (data?.success === true || data?.data)) {
+    if (res.ok && data?.success === true) {
       return data;
     }
 
@@ -34,7 +38,9 @@ export async function fetchMe() {
 
 export async function prefetchMe(qc: QueryClient) {
   try {
+    console.log("Prefetching me data...");
     await qc.prefetchQuery({ queryKey: meQueryKey, queryFn: fetchMe });
+    console.log("Prefetch completed");
   } catch (error) {
     console.error("Error prefetching user data:", error);
   }

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { productApiRequest, Product } from "@/apiRequests/products";
 import { metaApi } from "@/apiRequests/meta";
 import Link from "next/link";
+import { useI18n } from "@/i18n/I18nProvider";
 import { Search, Filter, Grid3X3, List, SortAsc, SortDesc } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ type SortOption =
   | "newest";
 
 export default function ShopPage() {
+  const { locale } = useI18n();
   const [items, setItems] = useState<Product[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
@@ -313,7 +315,10 @@ export default function ShopPage() {
                 }`}
               >
                 {sortedItems.map((product) => (
-                  <Link key={product._id} href={`/products/${product._id}`}>
+                  <Link
+                    key={product._id}
+                    href={`/${locale}/products/${product._id}`}
+                  >
                     <Card className="group overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-xl hover:-translate-y-1">
                       <div
                         className={`${

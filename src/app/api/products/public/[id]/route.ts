@@ -7,7 +7,7 @@ export async function GET(_request: NextRequest, ctx: any) {
   console.log("Product detail API called for ID:", id);
 
   try {
-    const backendUrl = `${envConfig.NEXT_PUBLIC_API_END_POINT}/products/public/${id}`;
+    const backendUrl = `${envConfig.NEXT_PUBLIC_API_END_POINT}/products/${id}`;
     console.log("Backend URL:", backendUrl);
 
     const res = await fetch(backendUrl, { cache: "no-store" });

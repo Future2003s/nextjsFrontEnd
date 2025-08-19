@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log("Creating product with body:", body);
     const response = await proxyJson(
-      `${process.env.NEXT_PUBLIC_API_END_POINT}/products/createProduct`,
+      `${process.env.NEXT_PUBLIC_API_END_POINT}/products`,
       request,
       {
         method: "POST",

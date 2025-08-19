@@ -1,317 +1,411 @@
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { BackendUserProfile } from "@/apiRequests/auth";
+import { useState, useCallback, useEffect } from "react";
+import {
+  authService,
+  BackendAuthResponse,
+  BackendUserProfile,
+} from "@/services/auth.service";
 import { ExtendedLoginBodyType } from "@/shemaValidation/auth.schema";
-import { toast } from "sonner";
+import { HttpError } from "@/lib/http";
+import { useAppContextProvider } from "@/context/app-context";
 
-import { setAuthCookies, clearAuthCookies, getCookie } from "@/lib/cookies";
-
-// Sử dụng type từ backend API
-type User = BackendUserProfile;
-
+// Auth state interface
 interface AuthState {
-  user: User | null;
+  user: BackendUserProfile | null;
   token: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  permissions?: string[];
+  error: string | null;
 }
 
-export function useAuth() {
+// Auth actions interface
+interface AuthActions {
+  login: (
+    email: string,
+    password: string,
+    rememberMe?: boolean
+  ) => Promise<BackendAuthResponse>;
+  loginExtended: (data: ExtendedLoginBodyType) => Promise<BackendAuthResponse>;
+  register: (userData: any) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
+  clearError: () => void;
+  updateUser: (userData: Partial<BackendUserProfile>) => void;
+  testConnection: () => Promise<{ success: boolean; message: string }>;
+  testApi: () => Promise<{ success: boolean; message: string }>;
+}
+
+// Combined auth hook return type
+type UseAuthReturn = AuthState & AuthActions;
+
+// Local storage keys
+const STORAGE_KEYS = {
+  TOKEN: "auth_token",
+  REFRESH_TOKEN: "auth_refresh_token",
+  USER: "auth_user",
+  REMEMBER_ME: "auth_remember_me",
+} as const;
+
+export const useAuth = (): UseAuthReturn => {
+  const { setSessionToken } = useAppContextProvider();
+  // State management
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     token: null,
     refreshToken: null,
     isAuthenticated: false,
     isLoading: true,
-    permissions: [],
+    error: null,
   });
 
-  const router = useRouter();
-  const pathname = usePathname();
-
-  // Fetch user data function - định nghĩa trước để tránh lỗi dependency
-  const fetchUserData = useCallback(async () => {
-    try {
-      const res = await fetch("/api/auth/me", { cache: "no-store" });
-      const result = await res.json();
-      if (res.ok && result?.success && result.user) {
-        // Đảm bảo dữ liệu có đầy đủ các field cần thiết
-        const userData: BackendUserProfile = {
-          ...result.user,
-          addresses: result.user.addresses || [],
-          preferences: result.user.preferences || {
-            language: "en",
-            currency: "USD",
-            notifications: { email: true, sms: false, push: true },
-          },
-        };
-
-        setAuthState((prev) => ({
-          ...prev,
-          user: userData,
-        }));
-      }
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-      // Token có thể đã hết hạn - xử lý nhẹ
-      setAuthState((prev) => ({
-        ...prev,
-        user: null,
-        token: null,
-        refreshToken: null,
-        isAuthenticated: false,
-      }));
-
-      // Không xóa cookies ở đây; để login lại hoặc refresh xử lý
-    }
-  }, []);
-
-  // Khởi tạo auth state từ cookies
+  // Initialize auth state from localStorage
   useEffect(() => {
     const initializeAuth = () => {
       try {
-        const token = getCookie("sessionToken");
-        const refreshToken = getCookie("refreshToken");
-        if (token || refreshToken) {
-          setAuthState((prev) => ({
-            ...prev,
-            token: token || null,
-            refreshToken: refreshToken || null,
+        const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+        const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+        const userStr = localStorage.getItem(STORAGE_KEYS.USER);
+        const rememberMe =
+          localStorage.getItem(STORAGE_KEYS.REMEMBER_ME) === "true";
+
+        if (token && userStr) {
+          const user = JSON.parse(userStr);
+          setAuthState({
+            user,
+            token,
+            refreshToken,
             isAuthenticated: true,
             isLoading: false,
-          }));
+            error: null,
+          });
 
-          // Fetch user data
-          fetchUserData();
+          // Validate token on initialization
+          if (rememberMe) {
+            validateAndRefreshToken(token, refreshToken);
+          }
         } else {
-          setAuthState((prev) => ({
-            ...prev,
-            isLoading: false,
-          }));
+          setAuthState((prev) => ({ ...prev, isLoading: false }));
         }
       } catch (error) {
-        console.error("Error initializing auth:", error);
-        setAuthState((prev) => ({
-          ...prev,
-          isLoading: false,
-        }));
+        console.error("Failed to initialize auth:", error);
+        setAuthState((prev) => ({ ...prev, isLoading: false }));
       }
     };
 
     initializeAuth();
-  }, [fetchUserData]);
+  }, []);
 
-  // Function này đã được định nghĩa ở trên, xóa duplicate
+  // Validate and refresh token
+  const validateAndRefreshToken = useCallback(
+    async (token: string, refreshToken: string | null) => {
+      try {
+        const isValid = await authService.validateToken(token);
+        if (!isValid.valid && refreshToken) {
+          await refreshAuth();
+        }
+      } catch (error) {
+        console.error("Token validation failed:", error);
+        await logout();
+      }
+    },
+    []
+  );
+
+  // Save auth data to localStorage
+  const saveAuthData = useCallback(
+    (data: BackendAuthResponse, rememberMe: boolean = false) => {
+      const { user, token, refreshToken } = data.data;
+
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, String(rememberMe));
+    },
+    []
+  );
+
+  // Clear auth data from localStorage
+  const clearAuthData = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
+  }, []);
+
+  // Helper: login via Next API to set httpOnly cookies for middleware
+  const loginViaNextApi = useCallback(
+    async (body: {
+      email: string;
+      password: string;
+      rememberMe?: boolean;
+      deviceInfo?: any;
+    }) => {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        const message = data?.error || data?.message || "Login failed";
+        throw new HttpError({
+          statusCode: res.status,
+          payload: { message },
+          url: "/api/auth/login",
+        });
+      }
+      return data as BackendAuthResponse;
+    },
+    []
+  );
 
   // Login function
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, rememberMe: boolean = false) => {
       try {
-        setAuthState((prev) => ({ ...prev, isLoading: true }));
+        setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+        const response = await loginViaNextApi({
+          email,
+          password,
+          rememberMe,
         });
-        const result = await res.json();
-        if (res.ok && result?.success && result?.data?.user) {
-          const { user } = result.data;
 
-          const userData: BackendUserProfile = {
-            ...user,
-            addresses: (user as any).addresses || [],
-            preferences: (user as any).preferences || {
+        saveAuthData(response, rememberMe);
+        try {
+          setSessionToken(response.data.token);
+        } catch {}
+
+        setAuthState({
+          user: {
+            ...response.data.user,
+            addresses: [],
+            preferences: {
               language: "en",
               currency: "USD",
               notifications: { email: true, sms: false, push: true },
             },
-          };
+          },
+          token: response.data.token,
+          refreshToken: response.data.refreshToken,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
 
-          setAuthState({
-            user: userData,
-            token: getCookie("sessionToken"),
-            refreshToken: getCookie("refreshToken"),
-            isAuthenticated: true,
-            isLoading: false,
-          });
+        return response;
+      } catch (error) {
+        const errorMessage =
+          error instanceof HttpError
+            ? error.payload?.message || "Login failed"
+            : "An unexpected error occurred";
 
-          toast.success("Đăng nhập thành công!");
+        setAuthState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: errorMessage,
+        }));
 
-          // Redirect to profile page with correct locale
-          const locale = pathname.split("/")[1] || "vi";
-          const redirectPath = `/${locale}/me`;
-          router.replace(redirectPath);
-
-          return { success: true };
-        } else {
-          throw new Error(result.message || "Đăng nhập thất bại");
-        }
-      } catch (error: any) {
-        console.error("Login error:", error);
-        if (!error?.silent) {
-          toast.error(error.message || "Đăng nhập thất bại");
-        }
-        setAuthState((prev) => ({ ...prev, isLoading: false }));
-        return { success: false, error: error.message };
+        throw error;
       }
     },
-    [router, pathname]
+    [saveAuthData, loginViaNextApi]
   );
 
-  // Enhanced login function with additional fields
+  // Login with extended data (rememberMe/deviceInfo)
   const loginExtended = useCallback(
-    async (loginData: ExtendedLoginBodyType) => {
+    async (data: ExtendedLoginBodyType) => {
       try {
-        setAuthState((prev) => ({ ...prev, isLoading: true }));
+        setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(loginData),
+        const response = await loginViaNextApi(data);
+
+        saveAuthData(response, Boolean(data.rememberMe));
+        try {
+          setSessionToken(response.data.token);
+        } catch {}
+
+        setAuthState({
+          user: {
+            ...response.data.user,
+            addresses: [],
+            preferences: {
+              language: "en",
+              currency: "USD",
+              notifications: { email: true, sms: false, push: true },
+            },
+          },
+          token: response.data.token,
+          refreshToken: response.data.refreshToken,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
         });
-        const result = await res.json();
-        if (res.ok && result?.success && result?.data?.user) {
-          const { user, permissions } = result.data;
 
-          const userData: BackendUserProfile = {
-            ...user,
-            addresses: (user as any).addresses || [],
-            preferences: user.preferences
-              ? {
-                  ...user.preferences,
-                  notifications: {
-                    email: user.preferences.notifications?.email ?? true,
-                    sms: user.preferences.notifications?.sms ?? false,
-                    push: user.preferences.notifications?.push ?? true,
-                  },
-                }
-              : {
-                  language: "vi",
-                  currency: "VND",
-                  notifications: { email: true, sms: false, push: true },
-                },
-          };
+        return response;
+      } catch (error) {
+        const errorMessage =
+          error instanceof HttpError
+            ? error.payload?.message || "Login failed"
+            : "An unexpected error occurred";
 
-          setAuthState({
-            user: userData,
-            token: getCookie("sessionToken"),
-            refreshToken: getCookie("refreshToken"),
-            isAuthenticated: true,
-            isLoading: false,
-            permissions: permissions || [],
-          });
+        setAuthState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: errorMessage,
+        }));
 
-          toast.success("Đăng nhập thành công!");
-
-          // Redirect logic
-          const locale = pathname.split("/")[1] || "vi";
-          const redirectPath = `/${locale}/me`;
-          router.replace(redirectPath);
-          return { success: true };
-        } else {
-          throw new Error(result.message || "Đăng nhập thất bại");
-        }
-      } catch (error: any) {
-        console.error("Enhanced Login error:", error);
-        if (!error?.silent) {
-          toast.error(error.message || "Đăng nhập thất bại");
-        }
-        setAuthState((prev) => ({ ...prev, isLoading: false }));
-        return { success: false, error: error.message };
+        throw error;
       }
     },
-    [router, pathname]
+    [saveAuthData, loginViaNextApi]
+  );
+
+  // Register function - sử dụng endpoint /auth/register từ API_DOCUMENTATION.md
+  const register = useCallback(
+    async (userData: any) => {
+      try {
+        setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+        const response = await authService.register(userData);
+
+        saveAuthData(response, false);
+
+        setAuthState({
+          user: {
+            ...response.data.user,
+            addresses: [],
+            preferences: {
+              language: "en",
+              currency: "USD",
+              notifications: { email: true, sms: false, push: true },
+            },
+          },
+          token: response.data.token,
+          refreshToken: response.data.refreshToken,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof HttpError
+            ? error.payload?.message || "Registration failed"
+            : "An unexpected error occurred";
+
+        setAuthState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: errorMessage,
+        }));
+
+        throw error;
+      }
+    },
+    [saveAuthData]
   );
 
   // Logout function
   const logout = useCallback(async () => {
     try {
-      try {
-        await fetch("/api/auth/logout", { method: "POST" });
-      } catch (error) {
-        console.error("Logout API error:", error);
-      }
+      // Call Next API to clear httpOnly cookies and notify backend
+      await fetch("/api/auth/logout", { method: "POST" });
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      // Xóa localStorage và cookie
-      clearAuthCookies();
+      clearAuthData();
+      try {
+        setSessionToken("");
+      } catch {}
       setAuthState({
         user: null,
         token: null,
         refreshToken: null,
         isAuthenticated: false,
         isLoading: false,
+        error: null,
       });
-      const locale = pathname.split("/")[1] || "vi";
-      const loginPath = `/${locale}/login`;
-      router.push(loginPath);
-      toast.success("Đã đăng xuất");
     }
-  }, [authState.token, router, pathname]);
+  }, [authState.token, clearAuthData]);
 
-  // Refresh token function
+  // Refresh auth token
   const refreshAuth = useCallback(async () => {
     try {
-      const refreshToken = getCookie("refreshToken");
-      if (!refreshToken) {
-        throw new Error("No refresh token");
+      if (!authState.refreshToken) {
+        throw new Error("No refresh token available");
       }
 
-      const res = await fetch("/api/auth/refresh", { method: "POST" });
-      const result = await res.json();
+      const response = await authService.refreshToken(authState.refreshToken);
 
-      if (res.ok && result?.success && result?.data) {
-        const { token: newToken, refreshToken: newRefreshToken } = result.data;
+      localStorage.setItem(STORAGE_KEYS.TOKEN, response.data.token);
+      localStorage.setItem(
+        STORAGE_KEYS.REFRESH_TOKEN,
+        response.data.refreshToken
+      );
 
-        // Cập nhật cookies
-        setAuthCookies(newToken, newRefreshToken);
-
-        // Cập nhật state
-        setAuthState((prev) => ({
-          ...prev,
-          token: newToken,
-          refreshToken: newRefreshToken,
-        }));
-
-        return { success: true };
-      } else {
-        throw new Error("Failed to refresh token");
-      }
+      setAuthState((prev) => ({
+        ...prev,
+        token: response.data.token,
+        refreshToken: response.data.refreshToken,
+      }));
     } catch (error) {
-      console.error("Token refresh error:", error);
-      logout();
-      return { success: false };
+      console.error("Token refresh failed:", error);
+      await logout();
     }
-  }, [logout]);
+  }, [authState.refreshToken, logout]);
 
-  // Check if user has specific role
-  const hasRole = useCallback(
-    (role: string | string[]) => {
-      if (!authState.user) return false;
+  // Clear error
+  const clearError = useCallback(() => {
+    setAuthState((prev) => ({ ...prev, error: null }));
+  }, []);
 
-      const roles = Array.isArray(role) ? role : [role];
-      return roles.includes(authState.user.role);
+  // Update user data
+  const updateUser = useCallback(
+    (userData: Partial<BackendUserProfile>) => {
+      setAuthState((prev) => ({
+        ...prev,
+        user: prev.user ? { ...prev.user, ...userData } : null,
+      }));
+
+      // Update localStorage
+      if (authState.user) {
+        const updatedUser = { ...authState.user, ...userData };
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+      }
     },
     [authState.user]
   );
 
-  // Check if user is admin
-  const isAdmin = useCallback(() => {
-    return hasRole(["admin", "staff"]);
-  }, [hasRole]);
+  // Test connection to backend
+  const testConnection = useCallback(async () => {
+    try {
+      const result = await authService.testConnection();
+      return result;
+    } catch (error) {
+      return { success: false, message: "Connection test failed" };
+    }
+  }, []);
+
+  // Test API endpoint
+  const testApi = useCallback(async () => {
+    try {
+      const result = await authService.testApi();
+      return result;
+    } catch (error) {
+      return { success: false, message: "API test failed" };
+    }
+  }, []);
 
   return {
     ...authState,
     login,
     loginExtended,
+    register,
     logout,
     refreshAuth,
-    hasRole,
-    isAdmin,
-    fetchUserData,
+    clearError,
+    updateUser,
+    testConnection,
+    testApi,
   };
-}
+};

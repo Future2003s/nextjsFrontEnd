@@ -56,9 +56,12 @@ export default function ProfilePage() {
 
   // Extract user data from backend response
   const me = useMemo(() => {
-    if (data?.success && data.data) {
-      return data.data as BackendUserProfile;
+    console.log("useMe data:", data);
+    if (data?.success && data.user) {
+      console.log("User data found:", data.user);
+      return data.user as BackendUserProfile;
     }
+    console.log("No user data found in:", data);
     return null;
   }, [data]);
 
@@ -75,13 +78,31 @@ export default function ProfilePage() {
     }
   }, [error, router]);
 
+  // Debug logging
+  useEffect(() => {
+    console.log("Profile page state:", { data, me, isLoading, error });
+  }, [data, me, isLoading, error]);
+
   // Redirect to login if no user data and not loading
   useEffect(() => {
     if (!isLoading && !me && !error) {
-      toast.error("Vui lòng đăng nhập để xem trang cá nhân");
-      router.push("/login");
+      console.log("No user data, redirecting to login", {
+        data,
+        me,
+        error,
+        isLoading,
+      });
+      // Don't redirect immediately, wait a bit to see if data loads
+      const timer = setTimeout(() => {
+        if (!me) {
+          toast.error("Vui lòng đăng nhập để xem trang cá nhân");
+          router.push("/login");
+        }
+      }, 1000);
+
+      return () => clearTimeout(timer);
     }
-  }, [isLoading, me, error, router]);
+  }, [isLoading, me, error, router, data]);
 
   if (isLoading) {
     return (
@@ -94,8 +115,21 @@ export default function ProfilePage() {
     );
   }
 
+  if (!me && !isLoading) {
+    console.log("No me data and not loading, waiting for redirect...");
+    return (
+      <div className="min-h-[70vh] bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <ButtonLoader size="lg" />
+          <p className="mt-4 text-gray-600">Đang kiểm tra đăng nhập...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // At this point, me should be defined
   if (!me) {
-    return null; // Will redirect in useEffect
+    return null;
   }
 
   const fullName = `${me.firstName} ${me.lastName}`.trim();

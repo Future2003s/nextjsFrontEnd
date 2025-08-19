@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { useAppContextProvider } from "@/context/app-context";
+
 import { Badge } from "@/components/ui/badge";
 
 export const OrderHistoryModal = ({
@@ -32,64 +32,61 @@ export const OrderHistoryModal = ({
     }[]
   >([]);
   const [loading, setLoading] = useState(false);
-  const { sessionToken } = useAppContextProvider();
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
         const res = await fetch(`/api/orders/${orderId}/history`, {
-          headers: sessionToken
-            ? { Authorization: `Bearer ${sessionToken}` }
-            : undefined,
           credentials: "include",
           cache: "no-store",
         });
 
         if (!res.ok) {
+          console.error("Failed to fetch order history:", res.status);
           setItems([]);
           return;
         }
 
-        let payload;
-        try {
-          const text = await res.text();
-          payload = text ? JSON.parse(text) : null;
-        } catch (error) {
-          console.error("JSON parse error:", error);
-          payload = null;
-        }
-        const list = payload?.data ?? payload ?? [];
-        const mapStatus = (s: string) =>
-          s === "PENDING"
-            ? "Chờ xử lý"
-            : s === "PROCESSING"
-            ? "Đang xử lý"
-            : s === "SHIPPED"
-            ? "Đang giao"
-            : s === "DELIVERED"
-            ? "Đã giao"
-            : s === "CANCELLED"
-            ? "Đã huỷ"
-            : "Chờ xử lý";
-        setItems(
-          list.map((h: any) => ({
+        const data = await res.json();
+
+        if (data.success && data.data) {
+          // Map backend status to Vietnamese
+          const mapStatus = (s: string) =>
+            s === "PENDING"
+              ? "Chờ xử lý"
+              : s === "PROCESSING"
+              ? "Đang xử lý"
+              : s === "SHIPPED"
+              ? "Đang giao"
+              : s === "DELIVERED"
+              ? "Đã giao"
+              : s === "CANCELLED"
+              ? "Đã huỷ"
+              : "Chờ xử lý";
+
+          const mappedHistory = data.data.map((h: any) => ({
             id: h.id,
             oldStatus: mapStatus(h.oldStatus) as any,
             newStatus: mapStatus(h.newStatus) as any,
-            changedBy: h.changedBy,
-            note: h.note,
+            changedBy: h.changedBy || "Unknown",
+            note: h.note || "",
             createdAt: h.createdAt,
-          }))
-        );
-      } catch {
+          }));
+
+          setItems(mappedHistory);
+        } else {
+          setItems([]);
+        }
+      } catch (error) {
+        console.error("Error loading order history:", error);
         setItems([]);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [orderId, sessionToken]);
+  }, [orderId]);
 
   const getVariant = (s: string) =>
     s === "Đã giao"

@@ -33,6 +33,7 @@ export default function ProductDetailPage() {
 
   const [item, setItem] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -47,6 +48,7 @@ export default function ProductDetailPage() {
       try {
         const res = await productApiRequest.getProduct(id);
         setItem(res?.data ?? null);
+        setError(null);
       } finally {
         setLoading(false);
       }
@@ -60,7 +62,7 @@ export default function ProductDetailPage() {
     return Number(v?.price ?? item.price);
   }, [item, selectedVariant]);
 
-  if (loading || !item) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pt-25 flex items-center justify-center">
         <Loader
@@ -69,6 +71,22 @@ export default function ProductDetailPage() {
           size="lg"
           overlay={false}
         />
+      </div>
+    );
+  }
+
+  if (error || !item) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pt-25 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="text-xl font-semibold">Không tải được sản phẩm</div>
+          <div className="text-sm text-gray-600">
+            Vui lòng thử lại sau hoặc quay lại danh sách sản phẩm.
+          </div>
+          <Button onClick={() => router.back()} variant="outline">
+            Quay lại
+          </Button>
+        </div>
       </div>
     );
   }

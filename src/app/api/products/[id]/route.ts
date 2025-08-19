@@ -6,13 +6,7 @@ export async function GET(_request: NextRequest, ctx: any) {
   const id = ctx?.params?.id as string;
   try {
     const base = envConfig.NEXT_PUBLIC_API_END_POINT;
-    const template = process.env.API_PRODUCTS_GET_URL_TEMPLATE; // e.g., /products/public/{id}
-    const candidates: string[] = [];
-    if (template) {
-      candidates.push(template.replace("{id}", id));
-    }
-    candidates.push(`/products/public/${id}`);
-    candidates.push(`/products/${id}`);
+    const candidates: string[] = [`/products/${id}`];
 
     let lastRes: Response | null = null;
     for (const path of candidates) {
@@ -73,13 +67,7 @@ export async function PUT(request: NextRequest, ctx: any) {
     console.log("Request body:", JSON.stringify(body, null, 2));
 
     const base = envConfig.NEXT_PUBLIC_API_END_POINT;
-    const template = process.env.API_PRODUCTS_UPDATE_URL_TEMPLATE; // e.g., /products/{id}
-    const candidates: string[] = [];
-    if (template) {
-      candidates.push(template.replace("{id}", id));
-    }
-    candidates.push(`/products/${id}`);
-    candidates.push(`/products/updateProduct/${id}`);
+    const candidates: string[] = [`/products/${id}`];
 
     console.log("Trying endpoints:", candidates);
     console.log("Base URL:", base);
@@ -134,13 +122,7 @@ export async function DELETE(request: NextRequest, ctx: any) {
   const id = ctx?.params?.id as string;
   try {
     const base = envConfig.NEXT_PUBLIC_API_END_POINT;
-    const template = process.env.API_PRODUCTS_DELETE_URL_TEMPLATE; // e.g., /products/{id}
-    const candidates: string[] = [];
-    if (template) {
-      candidates.push(template.replace("{id}", id));
-    }
-    candidates.push(`/products/${id}`);
-    candidates.push(`/products/deleteProduct/${id}`);
+    const candidates: string[] = [`/products/${id}`];
 
     let lastRes: Response | null = null;
     for (const path of candidates) {

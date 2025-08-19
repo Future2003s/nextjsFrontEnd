@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import type { Order } from "../types";
-import { useAppContextProvider } from "@/context/app-context";
+
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -24,48 +24,81 @@ export const OrderEditModal = ({
   onSave: (updatedOrder: Order) => void;
   onClose: () => void;
 }) => {
-  const [status, setStatus] = useState<string>(order.status);
+  // Map backend status to Vietnamese for display
+  const backendToVietnamese: Record<string, string> = {
+    PROCESSING: "Đang xử lý",
+    DELIVERED: "Đã giao",
+    CANCELLED: "Đã huỷ",
+    SHIPPED: "Đang giao",
+    PENDING: "Chờ xử lý",
+  };
+
+  // Map Vietnamese to backend status
+  const vietnameseToBackend: Record<string, string> = {
+    "Đang xử lý": "PROCESSING",
+    "Đã giao": "DELIVERED",
+    "Đã huỷ": "CANCELLED",
+    "Đang giao": "SHIPPED",
+    "Chờ xử lý": "PENDING",
+  };
+
+  const [status, setStatus] = useState<string>(
+    backendToVietnamese[order.status] || order.status
+  );
+  const [note, setNote] = useState<string>("");
   const [updating, setUpdating] = useState(false);
-  const { sessionToken } = useAppContextProvider();
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sessionToken) {
-      toast.error("Cần đăng nhập");
-      return;
-    }
 
     setUpdating(true);
     try {
-      const statusMap: Record<string, string> = {
-        "Đang xử lý": "PROCESSING",
-        "Đã giao": "DELIVERED",
-        "Đã huỷ": "CANCELLED",
-        "Đang giao": "SHIPPED",
-        "Chờ xử lý": "PENDING",
-      };
+      const backendStatus = vietnameseToBackend[status] || "PENDING";
 
-      const backendStatus = statusMap[status] || "PENDING";
+      console.log("Sending order status update:", {
+        orderId: order.id,
+        status: backendStatus,
+        note: note.trim() || "No note",
+        url: `/api/orders/${order.id}/status`,
+      });
 
-      const response = await fetch("/api/orders", {
+      const response = await fetch(`/api/orders/${order.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          orderId: order.id,
           status: backendStatus,
+          ...(note.trim() && { note: note.trim() }),
         }),
       });
 
+      console.log("Response status:", response.status);
+      console.log(
+        "Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
+
       if (!response.ok) {
-        throw new Error("Cập nhật thất bại");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `HTTP ${response.status}: Cập nhật thất bại`
+        );
       }
 
-      // Không cần tạo updatedOrder ở đây, để fetchOrders() lấy data mới từ backend
-      onSave(order as any);
-      toast.success("Cập nhật trạng thái thành công");
+      const result = await response.json();
+
+      if (result.success) {
+        // Không cần tạo updatedOrder ở đây, để fetchOrders() lấy data mới từ backend
+        onSave(order as any);
+        toast.success("Cập nhật trạng thái thành công");
+      } else {
+        throw new Error(result.message || "Cập nhật thất bại");
+      }
     } catch (error) {
-      toast.error("Cập nhật trạng thái thất bại");
+      const errorMessage =
+        error instanceof Error ? error.message : "Cập nhật trạng thái thất bại";
+      toast.error(errorMessage);
+      console.error("Order status update error:", error);
     } finally {
       setUpdating(false);
     }
@@ -116,6 +149,21 @@ export const OrderEditModal = ({
                   <SelectItem value="Đã huỷ">Đã huỷ</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="mt-4">
+              <Label htmlFor="note" className="mb-2 block">
+                Ghi chú (tùy chọn)
+              </Label>
+              <textarea
+                id="note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Nhập ghi chú về thay đổi trạng thái..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={3}
+                disabled={updating}
+              />
             </div>
             {updating && (
               <div className="mt-4">

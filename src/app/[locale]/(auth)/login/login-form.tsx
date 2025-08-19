@@ -14,7 +14,8 @@ import { envConfig } from "@/config";
 import { authApiRequest } from "@/apiRequests/auth";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
+import { defaultLocale } from "@/i18n/config";
 import { useAuth } from "@/hooks/useAuth";
 
 // shadcn/ui components
@@ -34,6 +35,8 @@ function LoginForm() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams();
+  const locale = (params as any)?.locale || defaultLocale;
   const { login, loginExtended } = useAuth();
   const t = useTranslations();
 
@@ -61,15 +64,19 @@ function LoginForm() {
         };
 
         const result = await loginExtended(extendedLoginData);
-        if (!result.success) {
-          setIsSubmitting(false);
+        if (result?.success) {
+          router.replace(`/${locale}/me`);
+          return;
         }
+        setIsSubmitting(false);
       } else {
         // Sử dụng basic login
         const result = await login(data.email, data.password);
-        if (!result.success) {
-          setIsSubmitting(false);
+        if (result?.success) {
+          router.replace(`/${locale}/me`);
+          return;
         }
+        setIsSubmitting(false);
       }
     } catch (error) {
       console.error("Login error:", error);
