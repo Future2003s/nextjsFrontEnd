@@ -11,6 +11,7 @@ import {
   Users,
   TrendingUp,
   Bell,
+  Globe,
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { OrdersView } from "./components/OrdersView";
@@ -270,6 +271,16 @@ export default function DashboardPage() {
               <Button variant="outline" className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
                 Báo cáo chi tiết
+              </Button>
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() =>
+                  (window.location.href = localePrefix("/translations"))
+                }
+              >
+                <Globe className="h-4 w-4" />
+                Quản lý đa ngôn ngữ
               </Button>
             </div>
           </CardContent>

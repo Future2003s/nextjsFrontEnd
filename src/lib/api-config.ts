@@ -114,6 +114,20 @@ export const API_CONFIG = {
     ANALYTICS: "/admin/analytics",
     SETTINGS: "/admin/settings",
     REPORTS: "/admin/reports",
+    TRANSLATIONS: "/admin/translations",
+    TRANSLATION_BY_KEY: "/admin/translations/:key",
+  },
+
+  // Translation endpoints
+  TRANSLATIONS: {
+    BY_KEY: "/translations/:key",
+    BY_KEYS: "/translations/keys",
+    BY_CATEGORY: "/translations/category/:category",
+    ALL: "/translations",
+    SEARCH: "/translations/search",
+    STATS: "/translations/stats",
+    EXPORT: "/translations/export",
+    IMPORT: "/translations/import",
   },
 
   // Additional endpoints for e-commerce
@@ -168,7 +182,7 @@ export function getAuthHeaders(
 ): Record<string, string> {
   return {
     Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
+    "Content-Type": "application/json; charset=utf-8",
     ...additionalHeaders,
   };
 }
@@ -176,8 +190,8 @@ export function getAuthHeaders(
 // Helper function to get common headers
 export function getCommonHeaders(): Record<string, string> {
   return {
-    "Content-Type": "application/json",
-    Accept: "application/json",
+    "Content-Type": "application/json; charset=utf-8",
+    Accept: "application/json; charset=utf-8",
   };
 }
 

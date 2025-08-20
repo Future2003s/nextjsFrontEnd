@@ -70,7 +70,7 @@ export const authPost = (url: string, data: any, options?: RequestInit) =>
     ...options,
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       ...options?.headers,
     },
     body: JSON.stringify(data),
@@ -81,7 +81,7 @@ export const authPut = (url: string, data: any, options?: RequestInit) =>
     ...options,
     method: "PUT",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       ...options?.headers,
     },
     body: JSON.stringify(data),

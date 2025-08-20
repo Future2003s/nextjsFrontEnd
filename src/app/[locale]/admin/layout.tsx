@@ -9,6 +9,9 @@ import {
   Users,
   BarChart3,
   Settings,
+  Globe,
+  Tags,
+  Award,
 } from "lucide-react";
 
 async function fetchMeServer() {
@@ -38,20 +41,19 @@ export default async function AdminLayout({
   params,
 }: {
   children: ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
   try {
+    const { locale } = await params;
     const res = await fetchMeServer();
-    const currentPath = `/${params.locale}/admin`;
+    const currentPath = `/${locale}/admin`;
 
     console.log("Admin layout - response status:", res.status, "ok:", res.ok);
 
     if (res.status === 401) {
       console.log("Redirecting to login - unauthorized");
       redirect(
-        `/${
-          params.locale
-        }/login?reason=login_required&redirect=${encodeURIComponent(
+        `/${locale}/login?reason=login_required&redirect=${encodeURIComponent(
           currentPath
         )}`
       );
@@ -60,7 +62,7 @@ export default async function AdminLayout({
     if (res.status === 403) {
       console.log("Redirecting to login - forbidden");
       redirect(
-        `/${params.locale}/login?reason=forbidden&redirect=${encodeURIComponent(
+        `/${locale}/login?reason=forbidden&redirect=${encodeURIComponent(
           currentPath
         )}`
       );
@@ -69,7 +71,7 @@ export default async function AdminLayout({
     if (!res.ok) {
       console.log("API error, redirecting to login", { status: res.status });
       redirect(
-        `/${params.locale}/login?reason=api_error&status=${
+        `/${locale}/login?reason=api_error&status=${
           res.status
         }&redirect=${encodeURIComponent(currentPath)}`
       );
@@ -85,16 +87,16 @@ export default async function AdminLayout({
     } catch (parseError) {
       console.error("Failed to parse user data:", parseError);
       redirect(
-        `/${
-          params.locale
-        }/login?reason=parse_error&redirect=${encodeURIComponent(currentPath)}`
+        `/${locale}/login?reason=parse_error&redirect=${encodeURIComponent(
+          currentPath
+        )}`
       );
     }
 
     if (!me) {
       console.log("No user data, redirecting to login");
       redirect(
-        `/${params.locale}/login?reason=no_user&redirect=${encodeURIComponent(
+        `/${locale}/login?reason=no_user&redirect=${encodeURIComponent(
           currentPath
         )}`
       );
@@ -103,7 +105,7 @@ export default async function AdminLayout({
     if (!me.role) {
       console.log("No role in user data, redirecting to login");
       redirect(
-        `/${params.locale}/login?reason=no_role&redirect=${encodeURIComponent(
+        `/${locale}/login?reason=no_role&redirect=${encodeURIComponent(
           currentPath
         )}`
       );
@@ -112,7 +114,7 @@ export default async function AdminLayout({
     if (!me.email) {
       console.log("No email in user data, redirecting to login");
       redirect(
-        `/${params.locale}/login?reason=no_email&redirect=${encodeURIComponent(
+        `/${locale}/login?reason=no_email&redirect=${encodeURIComponent(
           currentPath
         )}`
       );
@@ -124,46 +126,62 @@ export default async function AdminLayout({
 
     if (!allowed) {
       console.log("User not authorized, redirecting to /me", { role, allowed });
-      redirect(
-        `/${params.locale}/me?unauthorized=1&role=${encodeURIComponent(role)}`
-      );
+      redirect(`/${locale}/me?unauthorized=1&role=${encodeURIComponent(role)}`);
     }
 
     const navItems: AdminNavItem[] = [
       {
         id: "dashboard",
         label: "Tổng Quan",
-        href: `/${params.locale}/admin/dashboard`,
+        href: `/${locale}/admin/dashboard`,
         icon: <LayoutDashboard size={18} />,
       },
       {
         id: "orders",
         label: "Đơn Hàng",
-        href: `/${params.locale}/admin/orders`,
+        href: `/${locale}/admin/orders`,
         icon: <ShoppingCart size={18} />,
       },
       {
         id: "products",
         label: "Sản Phẩm",
-        href: `/${params.locale}/admin/products`,
+        href: `/${locale}/admin/admin-products`,
         icon: <Package size={18} />,
+      },
+      {
+        id: "categories",
+        label: "Danh Mục",
+        href: `/${locale}/admin/categories`,
+        icon: <Tags size={18} />,
+      },
+      {
+        id: "brands",
+        label: "Thương Hiệu",
+        href: `/${locale}/admin/brands`,
+        icon: <Award size={18} />,
       },
       {
         id: "accounts",
         label: "Tài Khoản",
-        href: `/${params.locale}/admin/accounts`,
+        href: `/${locale}/admin/accounts`,
         icon: <Users size={18} />,
       },
       {
         id: "analytics",
         label: "Thống Kê",
-        href: `/${params.locale}/admin/analytics`,
+        href: `/${locale}/admin/analytics`,
         icon: <BarChart3 size={18} />,
+      },
+      {
+        id: "translations",
+        label: "Đa Ngôn Ngữ",
+        href: `/${locale}/admin/translations`,
+        icon: <Globe size={18} />,
       },
       {
         id: "settings",
         label: "Cài Đặt",
-        href: `/${params.locale}/admin/settings`,
+        href: `/${locale}/admin/settings`,
         icon: <Settings size={18} />,
       },
     ];
@@ -182,8 +200,12 @@ export default async function AdminLayout({
     console.error("Admin layout error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+    // Use locale from params if available, otherwise default to 'vi'
+    const fallbackLocale = params
+      ? await params.then((p) => p.locale).catch(() => "vi")
+      : "vi";
     redirect(
-      `/${params.locale}/login?reason=error&error=${encodeURIComponent(
+      `/${fallbackLocale}/login?reason=error&error=${encodeURIComponent(
         errorMessage
       )}`
     );

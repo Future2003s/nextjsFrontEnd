@@ -49,7 +49,7 @@ const request = async (
     : undefined;
 
   const baseHeaders = {
-    "Content-Type": "application/json",
+    "Content-Type": "application/json; charset=utf-8",
   };
 
   // Determine base URL

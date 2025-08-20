@@ -66,7 +66,7 @@ const SignUpPage = (): React.JSX.Element => {
     mutationFn: async (data: RegisterRequestBackendType) => {
       const res = await fetch("http://localhost:8081/api/v1/auth/register", {
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
         },
         method: "POST",
         body: JSON.stringify(data),

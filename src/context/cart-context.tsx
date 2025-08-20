@@ -92,7 +92,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
               fetch(`/api/cart`, {
                 method: "POST",
                 headers: {
-                  "Content-Type": "application/json",
+                  "Content-Type": "application/json; charset=utf-8",
                   Authorization: `Bearer ${sessionToken}`,
                 },
                 body: JSON.stringify({
@@ -128,7 +128,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           fetch(`/api/cart`, {
             method: "PUT",
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type": "application/json; charset=utf-8",
               Authorization: `Bearer ${sessionToken}`,
             },
             body: JSON.stringify({
@@ -146,7 +146,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         fetch(`/api/cart`, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
             Authorization: `Bearer ${sessionToken}`,
           },
           body: JSON.stringify({
@@ -170,7 +170,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         fetch(`/api/cart`, {
           method: "DELETE",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
             Authorization: `Bearer ${sessionToken}`,
           },
           body: JSON.stringify({ itemId: id, variantId }),
@@ -199,7 +199,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           fetch(`/api/cart`, {
             method: "PUT",
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type": "application/json; charset=utf-8",
               Authorization: `Bearer ${sessionToken}`,
             },
             body: JSON.stringify({

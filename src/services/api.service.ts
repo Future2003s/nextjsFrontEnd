@@ -14,8 +14,8 @@ export class ApiService {
   constructor() {
     this.baseUrl = API_CONFIG.API_BASE_URL;
     this.defaultHeaders = {
-      "Content-Type": "application/json",
-      Accept: "application/json",
+      "Content-Type": "application/json; charset=utf-8",
+      Accept: "application/json; charset=utf-8",
     };
   }
 

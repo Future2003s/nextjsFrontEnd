@@ -157,7 +157,7 @@ class HttpClient {
           ...config,
           signal: controller.signal,
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
             "X-Request-ID": requestId,
             ...config.headers,
           },
