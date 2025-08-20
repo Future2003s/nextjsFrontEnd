@@ -3,9 +3,11 @@ import { envConfig } from "@/config";
 import Link from "next/link";
 import Image from "next/image";
 import { useAppContextProvider } from "@/context/app-context";
-import { useCartStore } from "@/store/cart";
+import { useCart } from "@/context/cart-context";
+import { useCartSidebar } from "@/context/cart-sidebar-context";
 import { useRouter, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 const LanguageSwitcher = dynamic(
   () => import("@/components/LanguageSwitcher"),
   { ssr: false }
@@ -115,8 +117,8 @@ const UserIcon = ({ className }: { className?: string }) => (
 );
 const MenuIcon = ({ className }: { className?: string }) => (
   <svg
-    width="26"
-    height="26"
+    width="22"
+    height="22"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -130,162 +132,31 @@ const MenuIcon = ({ className }: { className?: string }) => (
     <line x1="4" x2="20" y1="18" y2="18" />
   </svg>
 );
-const XIcon = ({ className }: { className?: string }) => (
-  <svg
-    width="26"
-    height="26"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M18 6 6 18" />
-    <path d="m6 6 12 12" />
-  </svg>
-);
-// --- Component Họa tiết trang trí ---
-const DecorativeDivider = () => (
-  <div className="relative -mt-16 sm:-mt-20 z-20 flex justify-center">
-    <div className="bg-gray-50 px-4">
-      <svg
-        width="200"
-        height="50"
-        viewBox="0 0 250 50"
-        className="text-slate-700 opacity-20"
-      >
-        {/* Lychee Branch */}
-        <path
-          d="M60 25 C 80 10, 100 10, 120 25"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          fill="none"
-        />
-        <circle cx="120" cy="25" r="5" fill="currentColor" stroke="none" />
-        <circle cx="123" cy="22" r="1" fill="white" />
-        <path
-          d="M120 25 Q 115 35, 110 30"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          fill="none"
-        />
-        <path
-          d="M120 25 Q 125 35, 130 30"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          fill="none"
-        />
 
-        {/* Bee */}
-        <ellipse cx="150" cy="20" rx="4" ry="2.5" fill="currentColor" />
-        <path d="M150 18 L 150 22" stroke="white" strokeWidth="1" />
-        <path
-          d="M148 17 Q 145 15, 148 13"
-          stroke="currentColor"
-          strokeWidth="1"
-          fill="none"
-        />
-        <path
-          d="M152 17 Q 155 15, 152 13"
-          stroke="currentColor"
-          strokeWidth="1"
-          fill="none"
-        />
-
-        {/* Honeycomb */}
-        <path
-          d="M180 25 l 5 -3 l 5 3 v 6 l -5 3 l -5 -3 v -6"
-          stroke="currentColor"
-          strokeWidth="1"
-          fill="none"
-        />
-        <path
-          d="M190 22 l 5 -3 l 5 3 v 6 l -5 3 l -5 -3 v -6"
-          stroke="currentColor"
-          strokeWidth="1"
-          fill="none"
-        />
-      </svg>
-    </div>
-  </div>
-);
-
-// --- Component Quick Language Toggle ---
 const QuickLanguageToggle = () => {
-  const { locale, setLocale } = useI18n();
-  const [isOpen, setIsOpen] = useState(false);
+  const { locale } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
 
-  const locales = ["vi", "en", "ja"];
-  const labels: Record<string, string> = {
-    vi: "VI",
-    en: "EN",
-    ja: "JP",
-  };
-
-  const flags: Record<string, string> = {
-    vi: "🇻🇳",
-    en: "🇺🇸",
-    ja: "🇯🇵",
+  const toggleLanguage = () => {
+    const newLocale = locale === "vi" ? "en" : "vi";
+    const newPath = pathname.replace(`/${locale}`, `/${newLocale}`);
+    router.push(newPath);
   };
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1 p-2 text-slate-700 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors duration-200"
-        aria-label="Chọn ngôn ngữ"
-      >
-        <span className="text-sm">{flags[locale]}</span>
-        <span className="text-xs font-medium">{labels[locale]}</span>
-      </button>
-
-      {isOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-            {locales.map((l) => (
-              <button
-                key={l}
-                onClick={() => {
-                  // Extract current path without locale
-                  const segments = pathname.split("/");
-                  // const currentLocale = segments[1];
-                  const pathWithoutLocale = segments.slice(2).join("/") || "";
-
-                  // Build new URL with selected locale
-                  const newPath = `/${l}${
-                    pathWithoutLocale ? `/${pathWithoutLocale}` : ""
-                  }`;
-
-                  // Update locale state and navigate
-                  setLocale(l as any);
-                  router.push(newPath);
-                  setIsOpen(false);
-                }}
-                className={`w-full text-left px-3 py-2.5 hover:bg-gray-100 text-sm transition-colors duration-200 flex items-center gap-2 ${
-                  l === locale ? "font-semibold bg-rose-50 text-rose-600" : ""
-                }`}
-              >
-                <span>{flags[l]}</span>
-                <span>{labels[l]}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <button
+      onClick={toggleLanguage}
+      className="flex items-center gap-1 p-2 text-slate-700 dark:text-gray-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors duration-200"
+      aria-label="Chọn ngôn ngữ"
+    >
+      <span className="text-sm">{locale === "vi" ? "🇻🇳" : "🇺🇸"}</span>
+      <span className="text-xs font-medium">{locale.toUpperCase()}</span>
+    </button>
   );
 };
 
-const Header = () => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+export default function Header() {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [isAtTop, setIsAtTop] = useState(true);
   const lastScrollY = useRef(0);
@@ -294,9 +165,8 @@ const Header = () => {
   const { logout } = useAuth();
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const totalQuantity = useCartStore((s) =>
-    s.items.reduce((sum, it) => sum + it.quantity, 0)
-  );
+  const { totalQuantity } = useCart();
+  const { openSidebar } = useCartSidebar();
   const t = useTranslations();
   const { locale } = useI18n();
   const navLinks = getNavLinks(t, locale, isAdmin);
@@ -309,47 +179,39 @@ const Header = () => {
         setIsHeaderVisible(true);
         return;
       }
-      if (currentScrollY > lastScrollY.current && currentScrollY > 200) {
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
         setIsHeaderVisible(false);
       } else {
         setIsHeaderVisible(true);
       }
       lastScrollY.current = currentScrollY;
     };
-    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [isMobileMenuOpen]);
+  }, []);
 
   useEffect(() => {
-    const fetchMe = async () => {
-      if (!sessionToken) {
-        setIsAdmin(false);
-        return;
-      }
+    const checkAdminStatus = async () => {
+      if (!sessionToken) return;
       try {
-        const res: any = await accountApiRequest.me(sessionToken);
-        const role = (
-          res?.data?.role ||
-          res?.data?.user?.role ||
-          res?.role ||
-          ""
-        )
-          .toString()
-          .toUpperCase();
-        setIsAdmin(role === "ADMIN" || role === "STAFF");
-      } catch {
-        setIsAdmin(false);
+        const user = await accountApiRequest.me(sessionToken);
+        setIsAdmin(user?.role === "admin");
+      } catch (error) {
+        console.error("Failed to check admin status:", error);
       }
     };
-    fetchMe();
+    checkAdminStatus();
   }, [sessionToken]);
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <>
       <header
-        className={`fixed w-full top-0 z-40 transition-all duration-500 ease-in-out bg-white/95 backdrop-blur-lg border-b border-gray-100 ${
+        className={`fixed w-full top-0 z-40 transition-all duration-500 ease-in-out bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-b border-gray-100 dark:border-gray-800 ${
           isHeaderVisible ? "translate-y-0" : "-translate-y-full"
-        } ${!isAtTop ? "shadow-lg" : ""}`}
+        } ${!isAtTop ? "shadow-lg dark:shadow-gray-900/20" : ""}`}
       >
         <div className="max-w-screen-xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-16 sm:h-18 lg:h-20">
@@ -367,7 +229,6 @@ const Header = () => {
               <span className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold tracking-tighter hidden sm:block bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
                 LALA-LYCHEEE
               </span>
-              {/* Brand wordmark simplified like Google: lighter weight */}
             </Link>
 
             {/* Navigation Links (Desktop) */}
@@ -376,18 +237,18 @@ const Header = () => {
                 <div key={link.label} className="relative group">
                   {link.subItems ? (
                     <>
-                      <span className="flex items-center gap-1.5 cursor-pointer py-2 px-1 text-sm lg:text-base font-medium text-slate-700 hover:text-rose-600 transition-colors duration-200">
+                      <span className="flex items-center gap-1.5 cursor-pointer py-2 px-1 text-sm lg:text-base font-medium text-slate-700 dark:text-gray-300 hover:text-rose-600 dark:hover:text-rose-400 transition-colors duration-200">
                         {link.label}
                         <ChevronDownIcon className="transition-transform duration-300 group-hover:rotate-180 w-4 h-4" />
                       </span>
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform group-hover:translate-y-0 -translate-y-2 z-50 border border-gray-200">
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-white dark:bg-gray-800 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform group-hover:translate-y-0 -translate-y-2 z-50 border border-gray-200 dark:border-gray-700">
                         <div className="py-2">
                           {link.subItems.map(
                             (item: { href: string; label: string }) => (
                               <Link
                                 key={item.label}
                                 href={item.href}
-                                className="block w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-gray-100 hover:text-slate-900 transition-colors duration-200"
+                                className="block w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-slate-900 dark:hover:text-white transition-colors duration-200"
                               >
                                 {item.label}
                               </Link>
@@ -399,7 +260,7 @@ const Header = () => {
                   ) : (
                     <Link
                       href={link.href!}
-                      className="py-2 px-1 text-sm lg:text-base font-medium text-slate-700 hover:text-rose-600 transition-colors duration-200"
+                      className="py-2 px-1 text-sm lg:text-base font-medium text-slate-700 dark:text-gray-300 hover:text-rose-600 dark:hover:text-rose-400 transition-colors duration-200"
                     >
                       {link.label}
                     </Link>
@@ -410,7 +271,7 @@ const Header = () => {
               {isAdmin && (
                 <Link
                   href={`/${locale}/admin/dashboard`}
-                  className="py-2 px-3 text-sm lg:text-base font-semibold text-white bg-slate-900 hover:bg-black rounded-lg transition-colors duration-200"
+                  className="py-2 px-3 text-sm lg:text-base font-semibold text-white bg-slate-900 dark:bg-gray-700 hover:bg-black dark:hover:bg-gray-600 rounded-lg transition-colors duration-200"
                 >
                   {t("nav.admin")}
                 </Link>
@@ -424,7 +285,7 @@ const Header = () => {
                   <button
                     onClick={() => setIsAccountOpen((v) => !v)}
                     aria-label="Tài khoản"
-                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-slate-700 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200"
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-slate-700 dark:text-gray-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all duration-200"
                   >
                     <UserIcon className="w-5 h-5" />
                     <span className="hidden md:block text-sm font-medium">
@@ -433,16 +294,16 @@ const Header = () => {
                     <ChevronDownIcon className="hidden md:block w-4 h-4" />
                   </button>
                   {isAccountOpen && (
-                    <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                    <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
                       <Link
                         href={`/${locale}/me`}
-                        className="block px-4 py-2.5 text-sm text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors duration-200"
+                        className="block px-4 py-2.5 text-sm text-slate-700 dark:text-gray-300 hover:bg-rose-50 dark:hover:bg-gray-700 hover:text-rose-600 dark:hover:text-rose-400 transition-colors duration-200"
                         onClick={() => setIsAccountOpen(false)}
                       >
                         {t("nav.profile")}
                       </Link>
                       <button
-                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors duration-200"
+                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-gray-300 hover:bg-rose-50 dark:hover:bg-gray-700 hover:text-rose-600 dark:hover:text-rose-400 transition-colors duration-200"
                         onClick={async () => {
                           try {
                             await logout();
@@ -469,7 +330,7 @@ const Header = () => {
                 <Link
                   href={`/${locale}/login`}
                   aria-label="Đăng nhập"
-                  className="p-2 text-slate-700 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200"
+                  className="p-2 text-slate-700 dark:text-gray-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all duration-200"
                 >
                   <UserIcon className="w-5 h-5" />
                 </Link>
@@ -477,7 +338,7 @@ const Header = () => {
               <Link
                 href={`/${locale}/cart`}
                 aria-label="Giỏ hàng"
-                className="relative p-2 text-slate-700 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200"
+                className="relative p-2 text-slate-700 dark:text-gray-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all duration-200"
               >
                 <ShoppingCartIcon className="w-5 h-5" />
                 {totalQuantity > 0 && (
@@ -490,12 +351,13 @@ const Header = () => {
               <div className="md:hidden">
                 <QuickLanguageToggle />
               </div>
+              <ThemeToggle />
               <div className="hidden md:block">
                 <LanguageSwitcher />
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
-                className="p-2 text-slate-700 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors duration-200 lg:hidden"
+                className="p-2 text-slate-700 dark:text-gray-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors duration-200 lg:hidden"
                 aria-label="Mở menu"
               >
                 <MenuIcon className="w-6 h-6" />
@@ -516,6 +378,4 @@ const Header = () => {
       ) : null}
     </>
   );
-};
-
-export default Header;
+}

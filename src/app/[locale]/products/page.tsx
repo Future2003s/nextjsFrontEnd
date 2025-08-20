@@ -86,15 +86,47 @@ export default function ShopPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const params: any = {};
+        const params: any = {
+          status: "active", // Add default status filter
+          isVisible: "true", // Add default visibility filter
+        };
         if (q) params.search = q;
         if (selectedCategory && selectedCategory !== "all")
           params.category = selectedCategory;
         if (selectedBrand && selectedBrand !== "all")
           params.brand = selectedBrand;
 
+        console.log("🔍 Loading products with params:", params);
+
+        // Test direct API call first
+        const testUrl =
+          "http://localhost:8081/api/v1/products?status=active&isVisible=true&limit=3";
+        console.log("🧪 Testing direct API call:", testUrl);
+
+        try {
+          const directResponse = await fetch(testUrl);
+          const directData = await directResponse.json();
+          console.log("🧪 Direct API Response:", directData);
+          console.log("🧪 Direct API Success:", directData.success);
+          console.log("🧪 Direct API Data:", directData.data);
+        } catch (directError) {
+          console.error("🧪 Direct API Error:", directError);
+        }
+
         const res = await productApiRequest.getProducts(params);
-        setItems(res?.data ?? []);
+        console.log("📦 API Response:", res);
+        console.log("📦 Response data:", res?.data);
+
+        // Try different response structures
+        let products: Product[] = [];
+        if (res?.data && Array.isArray(res.data)) {
+          products = res.data;
+        } else if (Array.isArray(res)) {
+          products = res;
+        }
+
+        console.log("📦 Final products array:", products);
+        setItems(products);
       } catch (error) {
         console.error("Failed to load products:", error);
         setItems([]);

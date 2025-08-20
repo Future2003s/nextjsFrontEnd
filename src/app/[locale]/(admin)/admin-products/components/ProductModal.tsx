@@ -43,7 +43,7 @@ export default function ProductModal({
     sku: "",
     categoryId: "",
     brandId: "",
-    status: "draft", // Changed from "ACTIVE" to "draft"
+    status: "draft", // use backend-aligned default
     images: [] as string[],
   });
   const [loading, setLoading] = useState(false);
@@ -54,16 +54,38 @@ export default function ProductModal({
 
   useEffect(() => {
     if (product && mode === "edit") {
+      // Map incoming status to backend values: draft | active | archived
+      const incomingStatus = (product.status || "draft")
+        .toString()
+        .toUpperCase();
+      const mappedStatus =
+        incomingStatus === "ACTIVE"
+          ? "active"
+          : incomingStatus === "INACTIVE"
+          ? "archived"
+          : incomingStatus === "DRAFT"
+          ? "draft"
+          : "draft"; // Always fallback to draft if unknown
+
       setFormData({
         name: product.name || "",
         description: product.description || "",
         price: product.price?.toString() || "",
-        stock: product.stock?.toString() || "",
+        stock: (product.stock ?? product.quantity)?.toString() || "",
         sku: product.sku || "",
-        categoryId: product.categoryId || product.category?.id || "",
-        brandId: product.brandId || product.brand?.id || "",
-        status: product.status || "ACTIVE",
-        images: product.images || [],
+        categoryId:
+          product.categoryId ||
+          product.category?.id ||
+          product.category?._id ||
+          "",
+        brandId:
+          product.brandId || product.brand?.id || product.brand?._id || "",
+        status: mappedStatus,
+        images: Array.isArray(product.images)
+          ? product.images.map((img: any) =>
+              typeof img === "string" ? img : img.url
+            )
+          : [],
       });
     } else {
       setFormData({
@@ -74,7 +96,7 @@ export default function ProductModal({
         sku: "",
         categoryId: "",
         brandId: "",
-        status: "ACTIVE",
+        status: "draft",
         images: [],
       });
     }
@@ -106,24 +128,39 @@ export default function ProductModal({
       setLoading(true);
 
       // Prepare data for backend
-      const productData = {
+      const productData: any = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price),
         quantity: parseInt(formData.stock), // Changed from stock to quantity
         sku: formData.sku.trim(),
-        category: formData.categoryId || undefined, // Changed from categoryId to category
-        brand: formData.brandId || undefined, // Changed from brandId to brand
-        status:
-          formData.status === "ACTIVE"
-            ? "active"
-            : formData.status === "INACTIVE"
-            ? "archived"
-            : "draft", // Map status values
-        images: formData.images || [],
+        // Send backend-expected status directly (draft | active | archived)
+        status: formData.status,
       };
 
+      // Only include valid ObjectIds for category/brand (avoid test IDs)
+      const isValidObjectId = (val: string) => /^[0-9a-fA-F]{24}$/.test(val);
+
+      if (formData.categoryId && isValidObjectId(formData.categoryId)) {
+        productData.category = formData.categoryId;
+      }
+      if (formData.brandId && isValidObjectId(formData.brandId)) {
+        productData.brand = formData.brandId;
+      }
+      if (formData.images && formData.images.length > 0) {
+        productData.images = formData.images.map((url, index) => ({
+          url: url,
+          alt: `Product image ${index + 1}`,
+          isMain: index === 0, // First image is main
+          order: index,
+        }));
+      }
+
       console.log("Submitting product data:", productData);
+      console.log("=== PRODUCT MODAL DEBUG ===");
+      console.log("Form data state:", formData);
+      console.log("Final payload:", productData);
+      console.log("=== END MODAL DEBUG ===");
 
       if (editing) {
         // Update existing product

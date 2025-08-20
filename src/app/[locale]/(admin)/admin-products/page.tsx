@@ -132,7 +132,24 @@ export default function ProductsPage() {
           setEditing(null);
         }
       } else {
-        throw new Error("Failed to delete product");
+        if (response.status === 401 || response.status === 403) {
+          toast.error(
+            "Bạn không có quyền xóa sản phẩm. Cần tài khoản Admin hoặc Seller."
+          );
+        } else if (response.status === 400) {
+          const t = await response.text().catch(() => "");
+          toast.error("Xóa thất bại: Dữ liệu không hợp lệ");
+          console.error("Validation error:", t);
+        } else {
+          const errorText = await response.text().catch(() => "");
+          console.error(
+            "Failed to delete product, status:",
+            response.status,
+            errorText
+          );
+          toast.error("Không thể xóa sản phẩm");
+        }
+        return;
       }
     } catch (error) {
       toast.error("Không thể xóa sản phẩm");
@@ -145,8 +162,10 @@ export default function ProductsPage() {
   const handleSaveEdit = async (updatedProduct: any) => {
     try {
       setSaving(true);
-      console.log("Updating product with ID:", editing.id);
-      console.log("Update payload:", updatedProduct);
+      console.log("=== UPDATE PRODUCT DEBUG ===");
+      console.log("Product ID being updated:", editing.id);
+      console.log("Current product state:", editing);
+      console.log("Update payload being sent:", updatedProduct);
 
       const response = await fetch(`/api/products/${editing.id}`, {
         method: "PUT",
@@ -157,25 +176,88 @@ export default function ProductsPage() {
       });
 
       console.log("Response status:", response.status);
-      console.log("Response headers:", response.headers);
+      console.log(
+        "Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
 
       if (response.ok) {
         const responseData = await response.json();
-        console.log("Response data:", responseData);
+        console.log("Success response data:", responseData);
+
+        const backend = responseData?.data || responseData;
+        // Map backend response back to UI shape
+        const mapped = {
+          id: backend.id || backend._id || editing.id,
+          name: backend.name || editing.name,
+          category: backend.category?.name || editing.category,
+          price: backend.price ?? editing.price,
+          stock: backend.quantity ?? backend.stock ?? editing.stock,
+          status:
+            backend.status === "active"
+              ? "ACTIVE"
+              : backend.status === "archived"
+              ? "INACTIVE"
+              : backend.status === "draft"
+              ? "DRAFT"
+              : editing.status,
+          sku: backend.sku ?? editing.sku,
+          brand: backend.brand?.name || editing.brand,
+          image:
+            backend.thumbnail ||
+            backend.imageUrl ||
+            (backend.images && backend.images.length > 0
+              ? typeof backend.images[0] === "string"
+                ? backend.images[0]
+                : backend.images[0]?.url
+              : editing.image),
+          description: backend.description ?? editing.description,
+          categoryId:
+            backend.category?._id || backend.category?.id || editing.categoryId,
+          brandId: backend.brand?._id || backend.brand?.id || editing.brandId,
+          images: Array.isArray(backend.images)
+            ? backend.images.map((img: any) =>
+                typeof img === "string" ? img : img.url
+              )
+            : editing.images || [],
+          createdAt: backend.createdAt ?? editing.createdAt,
+          updatedAt: backend.updatedAt ?? new Date().toISOString(),
+        };
+
+        console.log("Mapped product data:", mapped);
+        console.log("=== END UPDATE DEBUG ===");
 
         toast.success("Đã cập nhật sản phẩm thành công");
-        // Cập nhật state local thay vì gọi lại API
         setProducts((prev) =>
-          prev.map((p) =>
-            p.id === editing.id ? { ...p, ...updatedProduct } : p
-          )
+          prev.map((p) => (p.id === editing.id ? { ...p, ...mapped } : p))
         );
         setEditing(null);
       } else {
-        const errorData = await response.json();
-        console.error("Error response:", errorData);
+        if (response.status === 401 || response.status === 403) {
+          toast.error(
+            "Bạn không có quyền cập nhật sản phẩm. Cần tài khoản Admin hoặc Seller."
+          );
+          return;
+        }
+        if (response.status === 400) {
+          const t = await response.text().catch(() => "");
+          toast.error("Cập nhật thất bại: Dữ liệu không hợp lệ");
+          console.error("Validation error:", t);
+          return;
+        }
+        // Try to parse JSON; fall back to text
+        let errorPayload: any = null;
+        try {
+          errorPayload = await response.json();
+        } catch (e) {
+          const text = await response.text().catch(() => "");
+          errorPayload = { message: text };
+        }
+        console.error("Error response:", errorPayload);
         throw new Error(
-          `Failed to update product: ${errorData.message || "Unknown error"}`
+          `Failed to update product: ${
+            errorPayload?.message || "Unknown error"
+          }`
         );
       }
     } catch (error) {

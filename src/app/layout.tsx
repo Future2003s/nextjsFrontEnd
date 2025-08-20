@@ -8,6 +8,8 @@ import { Toaster } from "sonner";
 import { cookies } from "next/headers";
 import AppContext from "@/context/app-context";
 import { CartProvider } from "@/context/cart-context";
+import { CartSidebarProvider } from "@/context/cart-sidebar-context";
+import { ThemeProvider } from "@/context/theme-context";
 import { QueryProvider } from "@/providers/query-provider";
 import { I18nProvider } from "../i18n/I18nProvider";
 
@@ -36,9 +38,13 @@ export default async function RootLayout({
           <AppContext initialSessionToken={sessionToken?.value as string}>
             <QueryProvider>
               <CartProvider>
-                <I18nProvider>
-                  <LayoutMain>{children}</LayoutMain>
-                </I18nProvider>
+                <CartSidebarProvider>
+                  <ThemeProvider>
+                    <I18nProvider>
+                      <LayoutMain>{children}</LayoutMain>
+                    </I18nProvider>
+                  </ThemeProvider>
+                </CartSidebarProvider>
               </CartProvider>
             </QueryProvider>
           </AppContext>

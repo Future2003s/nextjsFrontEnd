@@ -2,7 +2,7 @@ import React from "react";
 
 function Footer() {
   return (
-    <footer className="bg-gradient-to-br from-blue-600 to-blue-500 text-white py-16 px-4 rounded-t-sm shadow-lg">
+    <footer className="bg-gradient-to-br from-blue-600 to-blue-500 dark:from-gray-800 dark:to-gray-900 text-white py-16 px-4 rounded-t-sm shadow-lg">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 text-center md:text-left">
         {/* Company Logo & Description */}
         <div className="flex flex-col items-center md:items-start text-center md:text-left lg:col-span-1">
@@ -10,7 +10,7 @@ function Footer() {
           <h3 className="text-4xl font-extrabold text-white mb-4 tracking-wider">
             Lalalycheee
           </h3>
-          <p className="text-blue-100 leading-relaxed mb-6">
+          <p className="text-blue-100 dark:text-gray-300 leading-relaxed mb-6">
             Chúng tôi tự hào mang đến những sản phẩm vải thiều chất lượng cao,
             bền vững và thân thiện môi trường, góp phần nâng tầm giá trị nông
             sản Việt.
@@ -19,7 +19,7 @@ function Footer() {
             {/* Social Media Icons */}
             <a
               href="#"
-              className="text-blue-200 hover:text-white transition duration-200 transform hover:scale-110"
+              className="text-blue-200 dark:text-gray-400 hover:text-white transition duration-200 transform hover:scale-110"
             >
               {/* Facebook Icon */}
               <svg

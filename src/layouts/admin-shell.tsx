@@ -59,11 +59,11 @@ export default function AdminShell({
       <div className="flex min-h-screen bg-gray-100 text-gray-800">
         {/* Desktop sidebar */}
         <aside
-          className={`hidden lg:flex lg:flex-col ${
+          className={`flex flex-col ${
             sidebarCollapsed ? "w-20" : "w-64"
-          } bg-white shadow-lg transition-all duration-300 overflow-hidden`}
+          } bg-white shadow-lg transition-all duration-300 overflow-hidden min-h-screen z-30`}
         >
-          <div className="h-20 border-b flex items-center px-6">
+          <div className="h-20 border-b flex items-center px-6 flex-shrink-0">
             <div className="h-10 w-10 rounded-md bg-pink-100 text-pink-600 flex items-center justify-center font-bold">
               {brand.short}
             </div>
@@ -72,23 +72,27 @@ export default function AdminShell({
               <div className="text-xs text-muted-foreground">Admin</div>
             </div>
           </div>
-          <nav className="flex-1 py-4">
+          <nav className="flex-1 py-4 overflow-y-auto">
             {navItems.map((item) => {
               const isActive = pathname?.startsWith(item.href) || false;
               return (
                 <Link
                   key={item.id}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-2.5 hover:bg-rose-50 transition-colors ${
+                  className={`flex items-center gap-3 px-4 py-2.5 hover:bg-rose-50 transition-colors cursor-pointer ${
                     isActive
                       ? "text-rose-600 bg-rose-50 font-semibold"
                       : "text-slate-700"
                   }`}
                 >
-                  <span className="w-5 h-5 flex items-center justify-center">
+                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                     {item.icon}
                   </span>
-                  <span className={`${sidebarCollapsed ? "hidden" : "block"}`}>
+                  <span
+                    className={`${
+                      sidebarCollapsed ? "hidden" : "block"
+                    } truncate`}
+                  >
                     {item.label}
                   </span>
                 </Link>
@@ -99,19 +103,19 @@ export default function AdminShell({
 
         {/* Mobile drawer */}
         {sidebarOpen && (
-          <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="fixed inset-0 z-50">
             <div
               className="absolute inset-0 bg-black/50"
               onClick={() => setSidebarOpen(false)}
             />
             <aside className="relative z-10 w-64 h-full bg-white shadow-lg flex flex-col">
-              <div className="h-16 border-b flex items-center px-4">
+              <div className="h-16 border-b flex items-center px-4 flex-shrink-0">
                 <div className="h-9 w-9 rounded-md bg-pink-100 text-pink-600 flex items-center justify-center font-bold">
                   {brand.short}
                 </div>
                 <div className="ml-2 font-semibold">{brand.name}</div>
               </div>
-              <nav className="flex-1 py-3">
+              <nav className="flex-1 py-3 overflow-y-auto">
                 {navItems.map((item) => {
                   const isActive = pathname?.startsWith(item.href) || false;
                   return (
@@ -119,7 +123,7 @@ export default function AdminShell({
                       key={item.id}
                       href={item.href}
                       onClick={() => setSidebarOpen(false)}
-                      className={`block px-4 py-2.5 hover:bg-rose-50 ${
+                      className={`block px-4 py-2.5 hover:bg-rose-50 transition-colors cursor-pointer ${
                         isActive
                           ? "text-rose-600 bg-rose-50 font-semibold"
                           : "text-slate-700"
@@ -141,7 +145,6 @@ export default function AdminShell({
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden"
                 onClick={() => setSidebarOpen(true)}
               >
                 <Menu size={20} />

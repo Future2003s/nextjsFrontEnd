@@ -4,7 +4,8 @@ import { productApiRequest, type Product } from "@/apiRequests/products";
 import { useParams, useRouter } from "next/navigation";
 import BuyNowModal from "@/components/ui/buy-now-modal";
 import { useAppContextProvider } from "@/context/app-context";
-import { useCartStore } from "@/store/cart";
+import { useCart } from "@/context/cart-context";
+import { useCartSidebar } from "@/context/cart-sidebar-context";
 import { Loader } from "@/components/ui/loader";
 import {
   ArrowLeft,
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
@@ -30,6 +32,8 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const id = params?.id as string;
   const { sessionToken } = useAppContextProvider();
+  const { addItem } = useCart();
+  const { openSidebar } = useCartSidebar();
 
   const [item, setItem] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,16 +43,22 @@ export default function ProductDetailPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [buyOpen, setBuyOpen] = useState(false);
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
-  const addItem = useCartStore((s) => s.addItem);
 
   useEffect(() => {
     if (!id) return;
     const load = async () => {
       setLoading(true);
+      setError(null);
       try {
         const res = await productApiRequest.getProduct(id);
-        setItem(res?.data ?? null);
-        setError(null);
+        if (res?.data) {
+          setItem(res.data);
+        } else {
+          setError("Không thể tải thông tin sản phẩm");
+        }
+      } catch (err: any) {
+        console.error("Error loading product:", err);
+        setError(err?.message || "Có lỗi xảy ra khi tải sản phẩm");
       } finally {
         setLoading(false);
       }
@@ -56,11 +66,40 @@ export default function ProductDetailPage() {
     load();
   }, [id]);
 
+  // Helper function to get image URL
+  const getImageUrl = (index: number) => {
+    if (!item?.images || item.images.length === 0) {
+      return "https://placehold.co/800x600";
+    }
+
+    const image = item.images[index];
+    if (typeof image === "string") {
+      return image; // Fallback for old format
+    }
+
+    return (image as any)?.url || "https://placehold.co/800x600";
+  };
+
+  // Helper function to get all image URLs
+  const getAllImageUrls = () => {
+    if (!item?.images || item.images.length === 0) {
+      return [];
+    }
+
+    return item.images
+      .map((img) => {
+        if (typeof img === "string") {
+          return img; // Fallback for old format
+        }
+        return (img as any)?.url || "";
+      })
+      .filter((url) => url);
+  };
+
   const price = useMemo(() => {
     if (!item) return 0;
-    const v = item.variants?.find((x) => x.id === selectedVariant);
-    return Number(v?.price ?? item.price);
-  }, [item, selectedVariant]);
+    return Number(item.price);
+  }, [item]);
 
   if (loading) {
     return (
@@ -112,7 +151,9 @@ export default function ProductDetailPage() {
             </button>
             <span className="text-gray-400">›</span>
             <span className="text-gray-900 font-medium truncate max-w-xs">
-              {item.categoryName || "Category"}
+              {typeof item.category === "object"
+                ? item.category.name
+                : "Category"}
             </span>
             <span className="text-gray-400">›</span>
             <span className="text-gray-900 font-medium truncate max-w-xs">
@@ -130,10 +171,7 @@ export default function ProductDetailPage() {
               <div className="aspect-[4/3] bg-white border border-gray-200 rounded-lg overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={
-                    item.images?.[selectedImageIndex] ||
-                    "https://placehold.co/800x600"
-                  }
+                  src={getImageUrl(selectedImageIndex)}
                   alt={item.name}
                   className="w-full h-full object-contain p-4"
                 />
@@ -149,9 +187,9 @@ export default function ProductDetailPage() {
               </Button>
 
               {/* Image Counter */}
-              {item.images?.length > 0 && (
+              {getAllImageUrls().length > 0 && (
                 <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
-                  {selectedImageIndex + 1} of {item.images.length}
+                  {selectedImageIndex + 1} of {getAllImageUrls().length}
                 </div>
               )}
             </div>
@@ -164,20 +202,20 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Thumbnail Gallery - Amazon Style */}
-            {item.images && item.images.length > 0 && (
+            {getAllImageUrls().length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium text-gray-700">
                     Product Images
                   </h3>
                   <span className="text-xs text-gray-500">
-                    {item.images.length} images
+                    {getAllImageUrls().length} images
                   </span>
                 </div>
 
                 {/* Thumbnail Row */}
                 <div className="flex gap-2 overflow-x-auto pb-2">
-                  {item.images.map((url, i) => (
+                  {getAllImageUrls().map((url, i) => (
                     <div
                       key={i}
                       onClick={() => setSelectedImageIndex(i)}
@@ -213,7 +251,7 @@ export default function ProductDetailPage() {
 
                 {/* Navigation Dots */}
                 <div className="flex justify-center gap-1">
-                  {item.images.map((_, i) => (
+                  {getAllImageUrls().map((_, i) => (
                     <div
                       key={i}
                       className={`w-2 h-2 rounded-full transition-colors cursor-pointer ${
@@ -237,16 +275,20 @@ export default function ProductDetailPage() {
                       {item.name}
                     </h1>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      {item.brandName && (
+                      {item.brand && (
                         <span className="flex items-center gap-1">
                           <span className="font-medium">Thương hiệu:</span>
-                          {item.brandName}
+                          {typeof item.brand === "object"
+                            ? item.brand.name
+                            : item.brand}
                         </span>
                       )}
-                      {item.categoryName && (
+                      {item.category && (
                         <span className="flex items-center gap-1">
                           <span className="font-medium">Danh mục:</span>
-                          {item.categoryName}
+                          {typeof item.category === "object"
+                            ? item.category.name
+                            : item.category}
                         </span>
                       )}
                     </div>
@@ -270,14 +312,18 @@ export default function ProductDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {item.brandName && (
+                  {item.brand && (
                     <Badge variant="outline" className="text-xs">
-                      {item.brandName}
+                      {typeof item.brand === "object"
+                        ? item.brand.name
+                        : item.brand}
                     </Badge>
                   )}
-                  {item.categoryName && (
+                  {item.category && (
                     <Badge variant="secondary" className="text-xs">
-                      {item.categoryName}
+                      {typeof item.category === "object"
+                        ? item.category.name
+                        : item.category}
                     </Badge>
                   )}
                   {typeof item.quantity === "number" && (
@@ -308,10 +354,17 @@ export default function ProductDetailPage() {
                   )}
                 </div>
 
-                {item.variants?.find((v) => v.id === selectedVariant) && (
+                {item.variants?.find(
+                  (v) => v._id === selectedVariant || v.id === selectedVariant
+                ) && (
                   <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
                     <span className="font-medium">Biến thể đã chọn:</span>{" "}
-                    {item.variants.find((v) => v.id === selectedVariant)?.name}
+                    {
+                      item.variants.find(
+                        (v) =>
+                          v._id === selectedVariant || v.id === selectedVariant
+                      )?.name
+                    }
                   </div>
                 )}
               </div>
@@ -344,7 +397,7 @@ export default function ProductDetailPage() {
                         <div className="text-left">
                           <div className="font-medium">{variant.name}</div>
                           <div className="text-xs text-gray-500">
-                            {formatCurrency(Number(variant.price))}
+                            {variant.options?.join(", ") || ""}
                           </div>
                         </div>
                       </Button>
@@ -423,8 +476,11 @@ export default function ProductDetailPage() {
                     className="flex-1 h-14 text-base font-medium"
                     onClick={() => {
                       const variant =
-                        item.variants?.find((x) => x.id === selectedVariant) ||
-                        null;
+                        item.variants?.find(
+                          (x) =>
+                            x._id === selectedVariant ||
+                            x.id === selectedVariant
+                        ) || null;
                       addItem({
                         id: (item as any)._id || (item as any).id,
                         productId: (item as any)._id || (item as any).id,
@@ -433,10 +489,12 @@ export default function ProductDetailPage() {
                         name: variant
                           ? `${item.name} - ${variant.name}`
                           : item.name,
-                        price: Number(variant?.price ?? item.price) || 0,
+                        price: Number(item.price) || 0,
                         quantity: qty,
-                        imageUrl: item.images?.[0],
+                        imageUrl: getImageUrl(0),
                       });
+                      openSidebar();
+                      toast.success("Đã thêm vào giỏ hàng!");
                     }}
                   >
                     <ShoppingCart className="h-5 w-5 mr-2" />
