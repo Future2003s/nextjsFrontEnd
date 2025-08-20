@@ -3,10 +3,10 @@ import { proxyJson } from "@/lib/next-api-auth";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!process.env.NEXT_PUBLIC_API_END_POINT) {
       console.error("NEXT_PUBLIC_API_END_POINT is not defined");

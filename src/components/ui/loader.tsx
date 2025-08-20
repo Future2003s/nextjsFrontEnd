@@ -5,10 +5,11 @@ import React from "react";
 
 // Loader component với animation đẹp
 interface LoaderProps {
-  isLoading: boolean;
+  isLoading?: boolean;
   size?: "sm" | "md" | "lg";
   message?: string;
   overlay?: boolean;
+  className?: string;
 }
 
 /* Moved keyframes to globals.css (.animate-*) */

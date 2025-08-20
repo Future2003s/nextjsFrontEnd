@@ -3,8 +3,9 @@
  * Comprehensive input validation with sanitization and security checks
  */
 
-import { z } from 'zod';
-import { ValidationError } from '@/lib/errors/types';
+import { z } from "zod";
+import { ValidationError } from "@/lib/api/types";
+import { ErrorCode } from "@/lib/errors/types";
 
 export interface ValidationRule {
   field: string;
@@ -14,7 +15,15 @@ export interface ValidationRule {
 }
 
 export interface ValidationRuleDefinition {
-  type: 'required' | 'email' | 'phone' | 'url' | 'min' | 'max' | 'pattern' | 'custom';
+  type:
+    | "required"
+    | "email"
+    | "phone"
+    | "url"
+    | "min"
+    | "max"
+    | "pattern"
+    | "custom";
   value?: any;
   message?: string;
   validator?: (value: any) => boolean | Promise<boolean>;
@@ -38,33 +47,44 @@ export interface SanitizationOptions {
 class Validator {
   private readonly emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   private readonly phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-  private readonly urlRegex = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+  private readonly urlRegex =
+    /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
   private readonly htmlTagRegex = /<[^>]*>/g;
-  private readonly scriptRegex = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi;
+  private readonly scriptRegex =
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi;
 
   /**
    * Validate data against rules
    */
-  async validate(data: any, rules: ValidationRule[]): Promise<ValidationResult> {
+  async validate(
+    data: any,
+    rules: ValidationRule[]
+  ): Promise<ValidationResult> {
     const errors: ValidationError[] = [];
     const sanitizedData: any = {};
 
     for (const rule of rules) {
       const value = data[rule.field];
-      
+
       // Check if field is required
-      if (!rule.optional && (value === undefined || value === null || value === '')) {
+      if (
+        !rule.optional &&
+        (value === undefined || value === null || value === "")
+      ) {
         errors.push({
           field: rule.field,
           message: `${rule.field} is required`,
-          code: 'REQUIRED',
+          code: ErrorCode.MISSING_REQUIRED_FIELD,
           value,
         });
         continue;
       }
 
       // Skip validation if field is optional and empty
-      if (rule.optional && (value === undefined || value === null || value === '')) {
+      if (
+        rule.optional &&
+        (value === undefined || value === null || value === "")
+      ) {
         continue;
       }
 
@@ -76,7 +96,11 @@ class Validator {
 
       // Apply validation rules
       for (const ruleDefinition of rule.rules) {
-        const ruleError = await this.applyRule(rule.field, sanitizedValue, ruleDefinition);
+        const ruleError = await this.applyRule(
+          rule.field,
+          sanitizedValue,
+          ruleDefinition
+        );
         if (ruleError) {
           errors.push(ruleError);
         }
@@ -105,11 +129,11 @@ class Validator {
       };
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const errors: ValidationError[] = error.errors.map(err => ({
-          field: err.path.join('.'),
+        const errors: ValidationError[] = error.errors.map((err) => ({
+          field: err.path.join("."),
           message: err.message,
           code: err.code,
-          value: err.input,
+          value: undefined,
         }));
 
         return {
@@ -120,11 +144,13 @@ class Validator {
 
       return {
         isValid: false,
-        errors: [{
-          field: 'unknown',
-          message: 'Validation failed',
-          code: 'UNKNOWN_ERROR',
-        }],
+        errors: [
+          {
+            field: "unknown",
+            message: "Validation failed",
+            code: "UNKNOWN_ERROR",
+          },
+        ],
       };
     }
   }
@@ -133,7 +159,7 @@ class Validator {
    * Sanitize input value
    */
   sanitizeValue(value: any, options: SanitizationOptions = {}): any {
-    if (typeof value !== 'string') {
+    if (typeof value !== "string") {
       return value;
     }
 
@@ -153,12 +179,12 @@ class Validator {
 
     // Remove HTML tags
     if (options.removeHtml) {
-      sanitized = sanitized.replace(this.htmlTagRegex, '');
+      sanitized = sanitized.replace(this.htmlTagRegex, "");
     }
 
     // Remove script tags
     if (options.removeScripts !== false) {
-      sanitized = sanitized.replace(this.scriptRegex, '');
+      sanitized = sanitized.replace(this.scriptRegex, "");
     }
 
     // Limit length
@@ -181,7 +207,7 @@ class Validator {
       /(\b(WAITFOR|DELAY)\b)/i,
     ];
 
-    return sqlPatterns.some(pattern => pattern.test(value));
+    return sqlPatterns.some((pattern) => pattern.test(value));
   }
 
   /**
@@ -199,7 +225,7 @@ class Validator {
       /<meta\b[^>]*>/i,
     ];
 
-    return xssPatterns.some(pattern => pattern.test(value));
+    return xssPatterns.some((pattern) => pattern.test(value));
   }
 
   /**
@@ -217,7 +243,7 @@ class Validator {
     if (password.length >= 8) {
       score += 1;
     } else {
-      feedback.push('Password should be at least 8 characters long');
+      feedback.push("Password should be at least 8 characters long");
     }
 
     if (password.length >= 12) {
@@ -228,37 +254,37 @@ class Validator {
     if (/[a-z]/.test(password)) {
       score += 1;
     } else {
-      feedback.push('Password should contain lowercase letters');
+      feedback.push("Password should contain lowercase letters");
     }
 
     if (/[A-Z]/.test(password)) {
       score += 1;
     } else {
-      feedback.push('Password should contain uppercase letters');
+      feedback.push("Password should contain uppercase letters");
     }
 
     if (/\d/.test(password)) {
       score += 1;
     } else {
-      feedback.push('Password should contain numbers');
+      feedback.push("Password should contain numbers");
     }
 
     if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
       score += 1;
     } else {
-      feedback.push('Password should contain special characters');
+      feedback.push("Password should contain special characters");
     }
 
     // Common password check
     if (this.isCommonPassword(password)) {
       score -= 2;
-      feedback.push('Password is too common');
+      feedback.push("Password is too common");
     }
 
     // Sequential characters check
     if (this.hasSequentialChars(password)) {
       score -= 1;
-      feedback.push('Avoid sequential characters');
+      feedback.push("Avoid sequential characters");
     }
 
     return {
@@ -277,107 +303,111 @@ class Validator {
     rule: ValidationRuleDefinition
   ): Promise<ValidationError | null> {
     switch (rule.type) {
-      case 'required':
-        if (value === undefined || value === null || value === '') {
+      case "required":
+        if (value === undefined || value === null || value === "") {
           return {
             field,
             message: rule.message || `${field} is required`,
-            code: 'REQUIRED',
+            code: ErrorCode.MISSING_REQUIRED_FIELD,
             value,
           };
         }
         break;
 
-      case 'email':
-        if (typeof value === 'string' && !this.emailRegex.test(value)) {
+      case "email":
+        if (typeof value === "string" && !this.emailRegex.test(value)) {
           return {
             field,
             message: rule.message || `${field} must be a valid email`,
-            code: 'INVALID_EMAIL',
+            code: "INVALID_EMAIL",
             value,
           };
         }
         break;
 
-      case 'phone':
-        if (typeof value === 'string' && !this.phoneRegex.test(value)) {
+      case "phone":
+        if (typeof value === "string" && !this.phoneRegex.test(value)) {
           return {
             field,
             message: rule.message || `${field} must be a valid phone number`,
-            code: 'INVALID_PHONE',
+            code: "INVALID_PHONE",
             value,
           };
         }
         break;
 
-      case 'url':
-        if (typeof value === 'string' && !this.urlRegex.test(value)) {
+      case "url":
+        if (typeof value === "string" && !this.urlRegex.test(value)) {
           return {
             field,
             message: rule.message || `${field} must be a valid URL`,
-            code: 'INVALID_URL',
+            code: "INVALID_URL",
             value,
           };
         }
         break;
 
-      case 'min':
-        if (typeof value === 'string' && value.length < rule.value) {
+      case "min":
+        if (typeof value === "string" && value.length < rule.value) {
           return {
             field,
-            message: rule.message || `${field} must be at least ${rule.value} characters`,
-            code: 'MIN_LENGTH',
+            message:
+              rule.message ||
+              `${field} must be at least ${rule.value} characters`,
+            code: "MIN_LENGTH",
             value,
           };
         }
-        if (typeof value === 'number' && value < rule.value) {
+        if (typeof value === "number" && value < rule.value) {
           return {
             field,
             message: rule.message || `${field} must be at least ${rule.value}`,
-            code: 'MIN_VALUE',
+            code: "MIN_VALUE",
             value,
           };
         }
         break;
 
-      case 'max':
-        if (typeof value === 'string' && value.length > rule.value) {
+      case "max":
+        if (typeof value === "string" && value.length > rule.value) {
           return {
             field,
-            message: rule.message || `${field} must be at most ${rule.value} characters`,
-            code: 'MAX_LENGTH',
+            message:
+              rule.message ||
+              `${field} must be at most ${rule.value} characters`,
+            code: "MAX_LENGTH",
             value,
           };
         }
-        if (typeof value === 'number' && value > rule.value) {
+        if (typeof value === "number" && value > rule.value) {
           return {
             field,
             message: rule.message || `${field} must be at most ${rule.value}`,
-            code: 'MAX_VALUE',
+            code: "MAX_VALUE",
             value,
           };
         }
         break;
 
-      case 'pattern':
-        if (typeof value === 'string' && !rule.value.test(value)) {
+      case "pattern":
+        if (typeof value === "string" && !rule.value.test(value)) {
           return {
             field,
             message: rule.message || `${field} format is invalid`,
-            code: 'INVALID_FORMAT',
+            code: "INVALID_FORMAT",
             value,
           };
         }
         break;
 
-      case 'custom':
+      case "custom":
         if (rule.validator) {
           const isValid = await rule.validator(value);
           if (!isValid) {
             return {
               field,
               message: rule.message || `${field} is invalid`,
-              code: 'CUSTOM_VALIDATION',
+              code: "CUSTOM_VALIDATION",
               value,
             };
           }
@@ -393,9 +423,21 @@ class Validator {
    */
   private isCommonPassword(password: string): boolean {
     const commonPasswords = [
-      'password', '123456', '123456789', 'qwerty', 'abc123',
-      'password123', 'admin', 'letmein', 'welcome', 'monkey',
-      'dragon', 'master', 'shadow', 'superman', 'michael',
+      "password",
+      "123456",
+      "123456789",
+      "qwerty",
+      "abc123",
+      "password123",
+      "admin",
+      "letmein",
+      "welcome",
+      "monkey",
+      "dragon",
+      "master",
+      "shadow",
+      "superman",
+      "michael",
     ];
 
     return commonPasswords.includes(password.toLowerCase());
@@ -405,8 +447,19 @@ class Validator {
    * Check for sequential characters
    */
   private hasSequentialChars(password: string): boolean {
-    const sequences = ['123', '234', '345', '456', '567', '678', '789', 'abc', 'bcd', 'cde'];
-    return sequences.some(seq => password.toLowerCase().includes(seq));
+    const sequences = [
+      "123",
+      "234",
+      "345",
+      "456",
+      "567",
+      "678",
+      "789",
+      "abc",
+      "bcd",
+      "cde",
+    ];
+    return sequences.some((seq) => password.toLowerCase().includes(seq));
   }
 }
 
@@ -415,10 +468,10 @@ export const validator = new Validator();
 
 // Common validation schemas
 export const commonSchemas = {
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  phone: z.string().regex(/^[\+]?[1-9][\d]{0,15}$/, 'Invalid phone number'),
-  url: z.string().url('Invalid URL format'),
-  positiveNumber: z.number().positive('Must be a positive number'),
-  nonEmptyString: z.string().min(1, 'Field cannot be empty'),
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  phone: z.string().regex(/^[\+]?[1-9][\d]{0,15}$/, "Invalid phone number"),
+  url: z.string().url("Invalid URL format"),
+  positiveNumber: z.number().positive("Must be a positive number"),
+  nonEmptyString: z.string().min(1, "Field cannot be empty"),
 };

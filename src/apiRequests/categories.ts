@@ -77,22 +77,22 @@ export const categoryApiRequest = {
 
   // Get main categories (top-level)
   getMainCategories: (): Promise<CategoriesResponse> => {
-    return http.get(API_CONFIG.CATEGORIES.MAIN);
+    return http.get(API_CONFIG.CATEGORIES.ALL);
   },
 
   // Get sub-categories of a parent
   getSubCategories: (parentId: string): Promise<CategoriesResponse> => {
-    return http.get(`${API_CONFIG.CATEGORIES.SUB}?parent=${parentId}`);
+    return http.get(`${API_CONFIG.CATEGORIES.ALL}?parent=${parentId}`);
   },
 
   // Get active categories only
   getActiveCategories: (): Promise<CategoriesResponse> => {
-    return http.get(API_CONFIG.CATEGORIES.ACTIVE);
+    return http.get(API_CONFIG.CATEGORIES.ALL);
   },
 
   // Get categories with product count
   getCategoriesWithProductCount: (): Promise<CategoriesResponse> => {
-    return http.get(API_CONFIG.CATEGORIES.WITH_PRODUCT_COUNT);
+    return http.get(API_CONFIG.CATEGORIES.ALL);
   },
 
   // Admin: Create category
