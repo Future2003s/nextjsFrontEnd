@@ -186,40 +186,67 @@ export default function ProductsPage() {
         console.log("Success response data:", responseData);
 
         const backend = responseData?.data || responseData;
-        // Map backend response back to UI shape
+
+        // Map backend response back to UI shape with better error handling
         const mapped = {
           id: backend.id || backend._id || editing.id,
           name: backend.name || editing.name,
-          category: backend.category?.name || editing.category,
+          description: backend.description || editing.description,
           price: backend.price ?? editing.price,
           stock: backend.quantity ?? backend.stock ?? editing.stock,
-          status:
-            backend.status === "active"
-              ? "ACTIVE"
-              : backend.status === "archived"
-              ? "INACTIVE"
-              : backend.status === "draft"
-              ? "DRAFT"
-              : editing.status,
           sku: backend.sku ?? editing.sku,
-          brand: backend.brand?.name || editing.brand,
-          image:
-            backend.thumbnail ||
-            backend.imageUrl ||
-            (backend.images && backend.images.length > 0
-              ? typeof backend.images[0] === "string"
-                ? backend.images[0]
-                : backend.images[0]?.url
-              : editing.image),
-          description: backend.description ?? editing.description,
-          categoryId:
-            backend.category?._id || backend.category?.id || editing.categoryId,
-          brandId: backend.brand?._id || backend.brand?.id || editing.brandId,
-          images: Array.isArray(backend.images)
-            ? backend.images.map((img: any) =>
+          status: (() => {
+            const backendStatus = backend.status?.toLowerCase();
+            if (backendStatus === "active") return "ACTIVE";
+            if (backendStatus === "archived") return "INACTIVE";
+            if (backendStatus === "draft") return "DRAFT";
+            return editing.status || "DRAFT";
+          })(),
+          brand: (() => {
+            if (backend.brand) {
+              if (typeof backend.brand === "string") return backend.brand;
+              return backend.brand.name || editing.brand;
+            }
+            return editing.brand;
+          })(),
+          category: (() => {
+            if (backend.category) {
+              if (typeof backend.category === "string") return backend.category;
+              return backend.category.name || editing.category;
+            }
+            return editing.category;
+          })(),
+          image: (() => {
+            if (backend.thumbnail) return backend.thumbnail;
+            if (backend.imageUrl) return backend.imageUrl;
+            if (backend.images && backend.images.length > 0) {
+              const firstImg = backend.images[0];
+              return typeof firstImg === "string" ? firstImg : firstImg.url;
+            }
+            return editing.image;
+          })(),
+          categoryId: (() => {
+            if (backend.category) {
+              if (typeof backend.category === "string") return backend.category;
+              return backend.category._id || backend.category.id;
+            }
+            return editing.categoryId;
+          })(),
+          brandId: (() => {
+            if (backend.brand) {
+              if (typeof backend.brand === "string") return backend.brand;
+              return backend.brand._id || backend.brand.id;
+            }
+            return editing.brandId;
+          })(),
+          images: (() => {
+            if (Array.isArray(backend.images)) {
+              return backend.images.map((img: any) =>
                 typeof img === "string" ? img : img.url
-              )
-            : editing.images || [],
+              );
+            }
+            return editing.images || [];
+          })(),
           createdAt: backend.createdAt ?? editing.createdAt,
           updatedAt: backend.updatedAt ?? new Date().toISOString(),
         };
@@ -228,9 +255,12 @@ export default function ProductsPage() {
         console.log("=== END UPDATE DEBUG ===");
 
         toast.success("Đã cập nhật sản phẩm thành công");
+
+        // Update products state with the mapped data
         setProducts((prev) =>
           prev.map((p) => (p.id === editing.id ? { ...p, ...mapped } : p))
         );
+
         setEditing(null);
       } else {
         if (response.status === 401 || response.status === 403) {
@@ -271,6 +301,9 @@ export default function ProductsPage() {
   const handleCreate = async (productData: any) => {
     try {
       setSaving(true);
+      console.log("=== CREATE PRODUCT DEBUG ===");
+      console.log("Create payload:", productData);
+
       const response = await fetch("/api/products/create", {
         method: "POST",
         headers: {
@@ -284,15 +317,104 @@ export default function ProductsPage() {
         console.log("Create product response:", result);
 
         const newProduct = result.data || result;
-        setProducts((prev) => [newProduct, ...prev]);
+
+        // Map backend response to UI format
+        const mappedNewProduct = {
+          id: newProduct.id || newProduct._id,
+          name: newProduct.name || "",
+          category: (() => {
+            if (newProduct.categoryName) return newProduct.categoryName;
+            if (newProduct.category) {
+              if (typeof newProduct.category === "string")
+                return newProduct.category;
+              return newProduct.category.name || "";
+            }
+            return "";
+          })(),
+          price: newProduct.price || 0,
+          stock: newProduct.stock || newProduct.quantity || 0,
+          status: (() => {
+            const backendStatus = newProduct.status?.toLowerCase();
+            if (backendStatus === "active") return "ACTIVE";
+            if (backendStatus === "archived") return "INACTIVE";
+            if (backendStatus === "draft") return "DRAFT";
+            return newProduct.status || "DRAFT";
+          })(),
+          sku: newProduct.sku || "",
+          brand: (() => {
+            if (newProduct.brandName) return newProduct.brandName;
+            if (newProduct.brand) {
+              if (typeof newProduct.brand === "string") return newProduct.brand;
+              return newProduct.brand.name || "";
+            }
+            return "";
+          })(),
+          image: (() => {
+            if (newProduct.thumbnail) return newProduct.thumbnail;
+            if (newProduct.imageUrl) return newProduct.imageUrl;
+            if (newProduct.images && newProduct.images.length > 0) {
+              const firstImg = newProduct.images[0];
+              return typeof firstImg === "string"
+                ? firstImg
+                : firstImg.url || "";
+            }
+            return "";
+          })(),
+          description: newProduct.description || "",
+          categoryId: (() => {
+            if (newProduct.categoryId) return newProduct.categoryId;
+            if (newProduct.category) {
+              if (typeof newProduct.category === "string")
+                return newProduct.category;
+              return newProduct.category._id || newProduct.category.id || "";
+            }
+            return "";
+          })(),
+          brandId: (() => {
+            if (newProduct.brandId) return newProduct.brandId;
+            if (newProduct.brand) {
+              if (typeof newProduct.brand === "string") return newProduct.brand;
+              return newProduct.brand._id || newProduct.brand.id || "";
+            }
+            return "";
+          })(),
+          images: (() => {
+            if (Array.isArray(newProduct.images)) {
+              return newProduct.images
+                .map((img: any) =>
+                  typeof img === "string" ? img : img.url || ""
+                )
+                .filter(Boolean);
+            }
+            return [];
+          })(),
+          createdAt: newProduct.createdAt || new Date().toISOString(),
+          updatedAt: newProduct.updatedAt || new Date().toISOString(),
+        };
+
+        console.log("Mapped new product:", mappedNewProduct);
+        console.log("=== END CREATE DEBUG ===");
+
+        setProducts((prev) => [mappedNewProduct, ...prev]);
         setCreating(false);
         toast.success("Đã tạo sản phẩm thành công");
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create product");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Create product error:", errorData);
+
+        let errorMessage = "Không thể tạo sản phẩm";
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      toast.error("Không thể tạo sản phẩm");
+      const errorMessage =
+        error instanceof Error ? error.message : "Không thể tạo sản phẩm";
+      toast.error(errorMessage);
       console.error("Error creating product:", error);
     } finally {
       setSaving(false);
@@ -323,37 +445,90 @@ export default function ProductsPage() {
         const data = await res.json();
         console.log("Products response data:", data);
 
-        const list = Array.isArray(data?.data) ? data.data : [];
+        // Ensure we have a valid array to work with
+        let list: any[] = [];
+        if (data?.data && Array.isArray(data.data)) {
+          list = data.data;
+        } else if (Array.isArray(data)) {
+          list = data;
+        } else if (data?.data && !Array.isArray(data.data)) {
+          console.warn("Products data is not an array:", data.data);
+          list = [];
+        } else {
+          console.warn("No valid products data found:", data);
+          list = [];
+        }
+
+        console.log("Products list to process:", list);
+
         setProducts(
           list.map((p: any) => ({
             id: p.id || p._id,
             name: p.name || p.productName || "",
-            category: p.categoryName || p.category?.name || "",
+            category: (() => {
+              if (p.categoryName) return p.categoryName;
+              if (p.category) {
+                if (typeof p.category === "string") return p.category;
+                return p.category.name || "";
+              }
+              return "";
+            })(),
             price: p.price || p.basePrice || 0,
-            stock: p.stock || p.quantity || p.inventoryQuantity || 0, // Handle both stock and quantity
-            status:
-              p.status === "active"
-                ? "ACTIVE"
-                : p.status === "archived"
-                ? "INACTIVE"
-                : p.status === "draft"
-                ? "DRAFT"
-                : p.status || "ACTIVE", // Map backend status to frontend
+            stock: p.stock || p.quantity || p.inventoryQuantity || 0,
+            status: (() => {
+              const backendStatus = p.status?.toLowerCase();
+              if (backendStatus === "active") return "ACTIVE";
+              if (backendStatus === "archived") return "INACTIVE";
+              if (backendStatus === "draft") return "DRAFT";
+              return p.status || "ACTIVE";
+            })(),
             sku: p.sku || p.code || "",
-            brand: p.brandName || p.brand?.name || "",
-            image:
-              p.thumbnail ||
-              p.imageUrl ||
-              (p.images && p.images.length > 0 ? p.images[0] : ""),
+            brand: (() => {
+              if (p.brandName) return p.brandName;
+              if (p.brand) {
+                if (typeof p.brand === "string") return p.brand;
+                return p.brand.name || "";
+              }
+              return "";
+            })(),
+            image: (() => {
+              if (p.thumbnail) return p.thumbnail;
+              if (p.imageUrl) return p.imageUrl;
+              if (p.images && p.images.length > 0) {
+                const firstImg = p.images[0];
+                return typeof firstImg === "string"
+                  ? firstImg
+                  : firstImg.url || "";
+              }
+              return "";
+            })(),
             description: p.description || "",
-            categoryId:
-              p.categoryId ||
-              p.category?._id ||
-              p.category?.id ||
-              p.category ||
-              "", // Handle both categoryId and category
-            brandId: p.brandId || p.brand?._id || p.brand?.id || p.brand || "", // Handle both brandId and brand
-            images: p.images || [],
+            categoryId: (() => {
+              if (p.categoryId) return p.categoryId;
+              if (p.category) {
+                if (typeof p.category === "string") return p.category;
+                return p.category._id || p.category.id || "";
+              }
+              return "";
+            })(),
+            brandId: (() => {
+              if (p.brandId) return p.brandId;
+              if (p.brand) {
+                if (typeof p.brand === "string") return p.brand;
+                return p.brand._id || p.brand.id || "";
+              }
+              return "";
+            })(),
+            images: (() => {
+              if (Array.isArray(p.images)) {
+                return p.images
+                  .map((img: any) =>
+                    typeof img === "string" ? img : img.url || ""
+                  )
+                  .filter(Boolean);
+              }
+              return [];
+            })(),
             createdAt: p.createdAt,
             updatedAt: p.updatedAt,
           }))
@@ -379,6 +554,8 @@ export default function ProductsPage() {
           errorMessage = errorData.message;
         } else if (res.status === 401) {
           errorMessage = "Không có quyền truy cập. Vui lòng đăng nhập lại";
+        } else if (res.status === 403) {
+          errorMessage = "Bạn không có quyền truy cập trang này";
         } else if (res.status === 404) {
           errorMessage = "API endpoint không tồn tại";
         } else if (res.status === 500) {
@@ -387,6 +564,7 @@ export default function ProductsPage() {
           errorMessage = `HTTP ${res.status}: ${res.statusText}`;
         }
 
+        console.error("Error message:", errorMessage);
         throw new Error(errorMessage);
       }
     } catch (error) {
@@ -413,26 +591,51 @@ export default function ProductsPage() {
   const fetchCategories = async () => {
     try {
       setLoadingCategories(true);
-      // Temporarily use test API to get sample data
-      const res = await fetch("/api/categories/test-crud", {
+      const res = await fetch("/api/categories", {
         cache: "no-store",
       });
 
       if (res.ok) {
         const data = await res.json();
-        // Mock categories data for testing
-        const mockCategories = [
-          { id: "cat_test_1", name: "Electronics" },
-          { id: "cat_test_2", name: "Clothing" },
-          { id: "cat_test_3", name: "Books" },
-          { id: "cat_test_4", name: "Home & Garden" },
-        ];
-        setCategories(mockCategories);
+        console.log("Categories API response:", data);
+
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setCategories(data.data);
+        } else if (data.success && Array.isArray(data.data)) {
+          // Empty array is valid
+          setCategories([]);
+        } else if (Array.isArray(data)) {
+          // Direct array response
+          setCategories(data);
+        } else {
+          console.error("Invalid categories data format:", data);
+          // Fallback to sample data
+          setCategories([
+            { id: "cat_sample_1", name: "Điện tử", _id: "cat_sample_1" },
+            { id: "cat_sample_2", name: "Quần áo", _id: "cat_sample_2" },
+            { id: "cat_sample_3", name: "Sách", _id: "cat_sample_3" },
+            { id: "cat_sample_4", name: "Nhà cửa", _id: "cat_sample_4" },
+          ]);
+        }
       } else {
-        console.error("Failed to fetch categories");
+        console.error("Failed to fetch categories, status:", res.status);
+        // Fallback to sample data
+        setCategories([
+          { id: "cat_sample_1", name: "Điện tử", _id: "cat_sample_1" },
+          { id: "cat_sample_2", name: "Quần áo", _id: "cat_sample_2" },
+          { id: "cat_sample_3", name: "Sách", _id: "cat_sample_3" },
+          { id: "cat_sample_4", name: "Nhà cửa", _id: "cat_sample_4" },
+        ]);
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
+      // Fallback to sample data
+      setCategories([
+        { id: "cat_sample_1", name: "Điện tử", _id: "cat_sample_1" },
+        { id: "cat_sample_2", name: "Quần áo", _id: "cat_sample_2" },
+        { id: "cat_sample_3", name: "Sách", _id: "cat_sample_3" },
+        { id: "cat_sample_4", name: "Nhà cửa", _id: "cat_sample_4" },
+      ]);
     } finally {
       setLoadingCategories(false);
     }
@@ -441,26 +644,51 @@ export default function ProductsPage() {
   const fetchBrands = async () => {
     try {
       setLoadingBrands(true);
-      // Temporarily use test API to get sample data
-      const res = await fetch("/api/brands/test-crud", {
+      const res = await fetch("/api/brands", {
         cache: "no-store",
       });
 
       if (res.ok) {
         const data = await res.json();
-        // Mock brands data for testing
-        const mockBrands = [
-          { id: "brand_test_1", name: "Apple" },
-          { id: "brand_test_2", name: "Samsung" },
-          { id: "brand_test_3", name: "Nike" },
-          { id: "brand_test_4", name: "Adidas" },
-        ];
-        setBrands(mockBrands);
+        console.log("Brands API response:", data);
+
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setBrands(data.data);
+        } else if (data.success && Array.isArray(data.data)) {
+          // Empty array is valid
+          setBrands([]);
+        } else if (Array.isArray(data)) {
+          // Direct array response
+          setBrands(data);
+        } else {
+          console.error("Invalid brands data format:", data);
+          // Fallback to sample data
+          setBrands([
+            { id: "brand_sample_1", name: "Apple", _id: "brand_sample_1" },
+            { id: "brand_sample_2", name: "Samsung", _id: "brand_sample_2" },
+            { id: "brand_sample_3", name: "Nike", _id: "brand_sample_3" },
+            { id: "brand_sample_4", name: "Adidas", _id: "brand_sample_4" },
+          ]);
+        }
       } else {
-        console.error("Failed to fetch brands");
+        console.error("Failed to fetch brands, status:", res.status);
+        // Fallback to sample data
+        setBrands([
+          { id: "brand_sample_1", name: "Apple", _id: "brand_sample_1" },
+          { id: "brand_sample_2", name: "Samsung", _id: "brand_sample_2" },
+          { id: "brand_sample_3", name: "Nike", _id: "brand_sample_3" },
+          { id: "brand_sample_4", name: "Adidas", _id: "brand_sample_4" },
+        ]);
       }
     } catch (error) {
       console.error("Error fetching brands:", error);
+      // Fallback to sample data
+      setBrands([
+        { id: "brand_sample_1", name: "Apple", _id: "brand_sample_1" },
+        { id: "brand_sample_2", name: "Samsung", _id: "brand_sample_2" },
+        { id: "brand_sample_3", name: "Nike", _id: "brand_sample_3" },
+        { id: "brand_sample_4", name: "Adidas", _id: "brand_sample_4" },
+      ]);
     } finally {
       setLoadingBrands(false);
     }
@@ -741,10 +969,18 @@ export default function ProductsPage() {
                     </h3>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-500">
-                        {product.brand}
+                        {product.brand || (
+                          <span className="text-gray-400 italic">
+                            Không có thương hiệu
+                          </span>
+                        )}
                       </span>
                       <Badge variant="outline" className="text-xs">
-                        {product.category}
+                        {product.category || (
+                          <span className="text-gray-400 italic">
+                            Không có danh mục
+                          </span>
+                        )}
                       </Badge>
                     </div>
                     <div className="text-lg font-bold text-gray-900">

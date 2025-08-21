@@ -43,7 +43,7 @@ export default function ProductModal({
     sku: "",
     categoryId: "",
     brandId: "",
-    status: "draft", // use backend-aligned default
+    status: "draft",
     images: [] as string[],
   });
   const [loading, setLoading] = useState(false);
@@ -54,39 +54,93 @@ export default function ProductModal({
 
   useEffect(() => {
     if (product && mode === "edit") {
+      console.log("=== EDIT MODE DEBUG ===");
+      console.log("Incoming product data:", product);
+
       // Map incoming status to backend values: draft | active | archived
       const incomingStatus = (product.status || "draft")
         .toString()
-        .toUpperCase();
-      const mappedStatus =
-        incomingStatus === "ACTIVE"
-          ? "active"
-          : incomingStatus === "INACTIVE"
-          ? "archived"
-          : incomingStatus === "DRAFT"
-          ? "draft"
-          : "draft"; // Always fallback to draft if unknown
+        .toLowerCase();
 
-      setFormData({
+      let mappedStatus = "draft";
+      if (incomingStatus === "active" || incomingStatus === "hoạt động") {
+        mappedStatus = "active";
+      } else if (
+        incomingStatus === "archived" ||
+        incomingStatus === "lưu trữ" ||
+        incomingStatus === "inactive"
+      ) {
+        mappedStatus = "archived";
+      } else if (incomingStatus === "draft" || incomingStatus === "nháp") {
+        mappedStatus = "draft";
+      }
+
+      // Extract category ID - handle both object and string formats
+      let categoryId = "";
+      if (product.categoryId) {
+        categoryId = product.categoryId;
+      } else if (product.category) {
+        if (typeof product.category === "string") {
+          categoryId = product.category;
+        } else if (product.category.id) {
+          categoryId = product.category.id;
+        } else if (product.category._id) {
+          categoryId = product.category._id;
+        }
+      }
+
+      // Extract brand ID - handle both object and string formats
+      let brandId = "";
+      if (product.brandId) {
+        brandId = product.brandId;
+      } else if (product.brand) {
+        if (typeof product.brand === "string") {
+          brandId = product.brand;
+        } else if (product.brand.id) {
+          brandId = product.brand.id;
+        } else if (product.brand._id) {
+          brandId = product.brand._id;
+        }
+      }
+
+      // Extract stock/quantity
+      const stockValue = product.stock ?? product.quantity ?? 0;
+
+      // Extract images
+      let images: string[] = [];
+      if (Array.isArray(product.images)) {
+        images = product.images
+          .map((img: any) => {
+            if (typeof img === "string") {
+              return img;
+            } else if (img && typeof img === "object") {
+              return img.url || img.src || "";
+            }
+            return "";
+          })
+          .filter(Boolean);
+      } else if (product.image) {
+        images = [product.image];
+      } else if (product.thumbnail) {
+        images = [product.thumbnail];
+      }
+
+      const mappedFormData = {
         name: product.name || "",
         description: product.description || "",
-        price: product.price?.toString() || "",
-        stock: (product.stock ?? product.quantity)?.toString() || "",
+        price: (product.price || 0).toString(),
+        stock: stockValue.toString(),
         sku: product.sku || "",
-        categoryId:
-          product.categoryId ||
-          product.category?.id ||
-          product.category?._id ||
-          "",
-        brandId:
-          product.brandId || product.brand?.id || product.brand?._id || "",
+        categoryId: categoryId || "none",
+        brandId: brandId || "none",
         status: mappedStatus,
-        images: Array.isArray(product.images)
-          ? product.images.map((img: any) =>
-              typeof img === "string" ? img : img.url
-            )
-          : [],
-      });
+        images: images,
+      };
+
+      console.log("Mapped form data:", mappedFormData);
+      console.log("=== END EDIT DEBUG ===");
+
+      setFormData(mappedFormData);
     } else {
       setFormData({
         name: "",
@@ -132,21 +186,47 @@ export default function ProductModal({
         name: formData.name.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price),
-        quantity: parseInt(formData.stock), // Changed from stock to quantity
+        quantity: parseInt(formData.stock), // Backend expects 'quantity'
         sku: formData.sku.trim(),
-        // Send backend-expected status directly (draft | active | archived)
-        status: formData.status,
+        status: formData.status, // Send backend-expected status directly
       };
 
-      // Only include valid ObjectIds for category/brand (avoid test IDs)
+      // Only include valid ObjectIds for category/brand
       const isValidObjectId = (val: string) => /^[0-9a-fA-F]{24}$/.test(val);
 
-      if (formData.categoryId && isValidObjectId(formData.categoryId)) {
+      // Handle category
+      if (
+        formData.categoryId &&
+        formData.categoryId !== "none" &&
+        isValidObjectId(formData.categoryId)
+      ) {
         productData.category = formData.categoryId;
+        console.log("Including category:", formData.categoryId);
+      } else if (formData.categoryId === "") {
+        console.log("No category selected - product will have no category");
+        // Don't include category field - backend will handle as null/undefined
+      } else if (formData.categoryId && formData.categoryId !== "none") {
+        console.warn("Invalid category ID format:", formData.categoryId);
+        // Don't include invalid category ID
       }
-      if (formData.brandId && isValidObjectId(formData.brandId)) {
+
+      // Handle brand
+      if (
+        formData.brandId &&
+        formData.brandId !== "none" &&
+        isValidObjectId(formData.brandId)
+      ) {
         productData.brand = formData.brandId;
+        console.log("Including brand:", formData.brandId);
+      } else if (formData.brandId === "") {
+        console.log("No brand selected - product will have no brand");
+        // Don't include brand field - backend will handle as null/undefined
+      } else if (formData.brandId && formData.brandId !== "none") {
+        console.warn("Invalid brand ID format:", formData.brandId);
+        // Don't include invalid brand ID
       }
+
+      // Handle images - convert to backend format
       if (formData.images && formData.images.length > 0) {
         productData.images = formData.images.map((url, index) => ({
           url: url,
@@ -156,20 +236,12 @@ export default function ProductModal({
         }));
       }
 
-      console.log("Submitting product data:", productData);
-      console.log("=== PRODUCT MODAL DEBUG ===");
+      console.log("=== PRODUCT MODAL SUBMIT DEBUG ===");
       console.log("Form data state:", formData);
-      console.log("Final payload:", productData);
-      console.log("=== END MODAL DEBUG ===");
+      console.log("Final payload for backend:", productData);
+      console.log("=== END SUBMIT DEBUG ===");
 
-      if (editing) {
-        // Update existing product
-        await onSave(productData);
-      } else {
-        // Create new product
-        await onSave(productData);
-      }
-
+      await onSave(productData);
       onClose();
     } catch (error) {
       console.error("Error submitting product:", error);
@@ -333,22 +405,60 @@ export default function ProductModal({
                   Danh mục
                 </Label>
                 <Select
-                  value={formData.categoryId}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, categoryId: value }))
-                  }
+                  value={formData.categoryId || "none"}
+                  onValueChange={(value) => {
+                    console.log("Category selected:", value);
+                    setFormData((prev) => ({
+                      ...prev,
+                      categoryId: value === "none" ? "" : value,
+                    }));
+                  }}
                 >
                   <SelectTrigger className="border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                     <SelectValue placeholder="Chọn danh mục" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
+                    <SelectItem value="none" className="text-gray-500 italic">
+                      ✗ Không có danh mục
+                    </SelectItem>
+                    {categories.length > 0 ? (
+                      categories
+                        .map((category) => {
+                          const categoryId = category.id || category._id;
+                          if (!categoryId) return null;
+                          return (
+                            <SelectItem key={categoryId} value={categoryId}>
+                              📁 {category.name || "Unnamed Category"}
+                            </SelectItem>
+                          );
+                        })
+                        .filter(Boolean)
+                    ) : (
+                      <SelectItem
+                        value="no-categories"
+                        disabled
+                        className="text-gray-400"
+                      >
+                        Không có danh mục nào
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
+                {formData.categoryId === "" && (
+                  <p className="text-blue-600 text-xs">
+                    ✓ Sản phẩm này sẽ không thuộc danh mục nào
+                  </p>
+                )}
+                {categories.length > 0 && (
+                  <p className="text-green-600 text-xs">
+                    📚 Có {categories.length} danh mục để chọn
+                  </p>
+                )}
+                {categories.length === 0 && (
+                  <p className="text-yellow-600 text-xs">
+                    ⚠️ Không thể tải danh mục. Vui lòng thử lại sau.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label
@@ -358,22 +468,60 @@ export default function ProductModal({
                   Thương hiệu
                 </Label>
                 <Select
-                  value={formData.brandId}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, brandId: value }))
-                  }
+                  value={formData.brandId || "none"}
+                  onValueChange={(value) => {
+                    console.log("Brand selected:", value);
+                    setFormData((prev) => ({
+                      ...prev,
+                      brandId: value === "none" ? "" : value,
+                    }));
+                  }}
                 >
                   <SelectTrigger className="border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                     <SelectValue placeholder="Chọn thương hiệu" />
                   </SelectTrigger>
                   <SelectContent>
-                    {brands.map((brand) => (
-                      <SelectItem key={brand.id} value={brand.id}>
-                        {brand.name}
+                    <SelectItem value="none" className="text-gray-500 italic">
+                      ✗ Không có thương hiệu
+                    </SelectItem>
+                    {brands.length > 0 ? (
+                      brands
+                        .map((brand) => {
+                          const brandId = brand.id || brand._id;
+                          if (!brandId) return null;
+                          return (
+                            <SelectItem key={brandId} value={brandId}>
+                              🏷️ {brand.name || "Unnamed Brand"}
+                            </SelectItem>
+                          );
+                        })
+                        .filter(Boolean)
+                    ) : (
+                      <SelectItem
+                        value="no-brands"
+                        disabled
+                        className="text-gray-400"
+                      >
+                        Không có thương hiệu nào
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
+                {formData.brandId === "" && (
+                  <p className="text-blue-600 text-xs">
+                    ✓ Sản phẩm này sẽ không thuộc thương hiệu nào
+                  </p>
+                )}
+                {brands.length > 0 && (
+                  <p className="text-green-600 text-xs">
+                    🏷️ Có {brands.length} thương hiệu để chọn
+                  </p>
+                )}
+                {brands.length === 0 && (
+                  <p className="text-yellow-600 text-xs">
+                    ⚠️ Không thể tải thương hiệu. Vui lòng thử lại sau.
+                  </p>
+                )}
               </div>
             </div>
 
